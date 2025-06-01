@@ -1,7 +1,4 @@
 streamlit
 requests
 spacy
-# Je script downloadt nl_core_news_sm zelf, 
-# dus voor nu is dit meestal voldoende voor Streamlit Cloud.
-# Als het model niet downloadt bij deployment, kan het nodig zijn 
-# hier een directe link naar het model-wheel toe te voegen.
+nl_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/nl_core_news_sm-3.8.0/nl_core_news_sm-3.8.0-py3-none-any.whl
