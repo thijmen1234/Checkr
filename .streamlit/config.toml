@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#2963E0"      # Jouw gewenste felle blauw
+backgroundColor = "#FFFFFF"    # Wit (of je testgroen als je verder wilt testen)
+secondaryBackgroundColor = "#F7FAFC" # Lichtgrijs/blauw (of je testgeel)
+textColor = "#1A202C"          # Donker leisteenblauw/grijs (of je testblauw)
+font = "sans serif"

@@ -1,0 +1,7 @@
+streamlit
+requests
+spacy
+# Je script downloadt nl_core_news_sm zelf, 
+# dus voor nu is dit meestal voldoende voor Streamlit Cloud.
+# Als het model niet downloadt bij deployment, kan het nodig zijn 
+# hier een directe link naar het model-wheel toe te voegen.
