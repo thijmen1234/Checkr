@@ -11,6 +11,7 @@ import json
 try:
     st.set_page_config(layout="centered", page_title="Welkom bij CheckR!", page_icon="Checkr Logo.png")
 except Exception as e:
+    st.set_page_config(layout="centered", page_title="CheckR") 
     st.error(f"Kon logo niet laden als page_icon: {e}. Zorg dat 'Checkr Logo.png' in de juiste map staat.")
 
 # --- Custom CSS Styling ---
@@ -23,8 +24,8 @@ def apply_custom_styling():
         .stTextArea>div>div>textarea,
         .stSelectbox>div>div,
         .stRadio>div, .stCheckbox, .stMultiSelect > div[data-baseweb="select"] > div,
-        div[data-testid="stNumberInput"] input, /* Target number input fields */
-        div[data-testid="stSlider"] /* Target sliders */
+        div[data-testid="stNumberInput"] input,
+        div[data-testid="stSlider"]
         {
             font-family: 'Poppins', sans-serif;
         }
@@ -72,28 +73,48 @@ apply_custom_styling()
 # --- SpaCy Model Laden ---
 @st.cache_resource
 def load_spacy_model():
-    try: return spacy.load("nl_core_news_sm")
+    import spacy 
+    model_name = "nl_core_news_sm"
+    try:
+        nlp_model = spacy.load(model_name)
+        return nlp_model
     except OSError:
-        st.info("SpaCy Nederlands model (nl_core_news_sm) wordt gedownload...")
-        try: spacy.cli.download("nl_core_news_sm"); return spacy.load("nl_core_news_sm")
-        except Exception as e: st.error(f"Fout bij downloaden SpaCy: {e}."); st.stop()
+        st.info(f"SpaCy Nederlands model ({model_name}) wordt gedownload...")
+        try:
+            from spacy.cli import download 
+            download(model_name)
+            nlp_model = spacy.load(model_name)
+            return nlp_model
+        except SystemExit: 
+            st.error(f"Fout bij downloaden van SpaCy model ({model_name}) via spacy.cli. "
+                     f"Probeer het model handmatig te downloaden in je terminal: python -m spacy download {model_name}")
+            return None 
+        except Exception as e:
+            st.error(f"Algemene fout bij downloaden/laden van SpaCy model ({model_name}): {e}")
+            return None
+    except Exception as e: 
+        st.error(f"Onverwachte fout bij het laden van SpaCy model ({model_name}): {e}")
+        return None
+
 nlp = load_spacy_model()
+if nlp is None:
+    st.error("Het SpaCy NLP model kon niet geladen worden. De app kan niet volledig functioneren.")
+    st.stop() 
 
 # --- Constanten en Mappings ---
 SUPERMARKETS = {"ah": "Albert Heijn", "aldi": "Aldi", "coop": "COOP", "dekamarkt": "DEKAMarkt", "dirk": "Dirk", "hoogvliet": "Hoogvliet", "jumbo": "Jumbo", "picnic": "PicNic", "plus": "Plus", "spar": "SPAR", "vomar": "Vomar"}
 RETAILER_KEYS = set(SUPERMARKETS.keys())
-RETAILER_NAMES = set(name.lower() for name in SUPERMARKETS.values())
+RETAILER_NAMES = set(name.lower().strip() for name in SUPERMARKETS.values())
+ALL_RETAILER_PREFIXES_SORTED = sorted(list(RETAILER_NAMES) + list(RETAILER_KEYS), key=len, reverse=True)
+
 DIGIT_PATTERN = re.compile(r"\b\d+([\.,]?\d+)?\s*(l|ml|cl|kg|g|gr|st|stuk|x|per|gram|liter|ltr)?\b", re.IGNORECASE)
 REMOVE_WORDS = {"stuk", "stuks", "st", "pieces", "piece", "per", "x", "gram", "kilogram", "liter", "ltr", "de", "het", "een", "en", "of"}
 EXTRA_STOPWORDS = {"met", "zonder", "voor", "tegen", "bij", "van", "op", "onder", "boven", "door", "in", "uit", "tot", "tussen", "achter", "langs", "om", "over", "na", "aan", "binnen", "buiten", "sinds", "zoals", "vers", "verse"}
 ALL_STOPWORDS = REMOVE_WORDS.union(EXTRA_STOPWORDS)
 
-# NIEUW: Definieer hier je samenvoegregels
-KEYWORD_MERGE_RULES = {
-    frozenset({"go", "tan"}): "Go-Tan", # Als 'go' en 'tan' samen voorkomen, wordt het "Go-Tan"
-    # Voeg hier meer regels toe: frozenset({lowercase_woord1, lowercase_woord2}): "Gewenste Categorienaam"
-    # Bijvoorbeeld:
-    # frozenset({"biologisch", "kipfilet"}): "Biologische Kipfilet",
+MANUAL_KEYWORD_MERGE_RULES = {
+    frozenset({"go", "tan"}): "Go-Tan",
+    frozenset({"earl", "grey"}): "Earl Grey", # Handmatig toegevoegd voor betere naamgeving
 }
 
 # --- Session State Initialisatie ---
@@ -104,39 +125,45 @@ if 'active_swap' not in st.session_state: st.session_state.active_swap = None
 if 'shopping_mode_active' not in st.session_state: st.session_state.shopping_mode_active = False
 if 'active_shopping_list_details' not in st.session_state: st.session_state.active_shopping_list_details = None
 if 'active_shopping_supermarket_name' not in st.session_state: st.session_state.active_shopping_supermarket_name = None
+if 'skipped_products_log' not in st.session_state: st.session_state.skipped_products_log = []
+
 
 # --- Functie Definities ---
-# (clean_name, fetch_supermarket_data, etc. blijven hier)
 def clean_name(name, search_term=None):
-    original_name_lower = name.lower(); parts = original_name_lower.split()
-    if parts:
-        first = parts[0].rstrip(':')
-        if first in RETAILER_KEYS or first in RETAILER_NAMES: parts = parts[1:]
-    name_cleaned_initial = " ".join(parts)
-    name_cleaned_initial = DIGIT_PATTERN.sub("", name_cleaned_initial)
-    name_cleaned_initial = re.sub(r"[-/]", " ", name_cleaned_initial)
-    name_cleaned_initial = re.sub(r"\s+", " ", name_cleaned_initial).strip()
-    final_cleaned_text = name_cleaned_initial
+    name_to_process = name.lower()
+    for prefix in ALL_RETAILER_PREFIXES_SORTED:
+        if name_to_process.startswith(prefix + " ") or \
+           name_to_process.startswith(prefix + ":") or \
+           name_to_process == prefix:
+            name_to_process = name_to_process[len(prefix):].lstrip(": ").strip()
+            break 
+    name_cleaned_after_supermarket = DIGIT_PATTERN.sub("", name_to_process)
+    name_cleaned_after_supermarket = re.sub(r"[-/]", " ", name_cleaned_after_supermarket)
+    name_cleaned_after_supermarket = re.sub(r"[^\w\s]", "", name_cleaned_after_supermarket)
+    name_cleaned_after_supermarket = re.sub(r"\s+", " ", name_cleaned_after_supermarket).strip()
+    final_cleaned_text = name_cleaned_after_supermarket
     if search_term:
         search_term_lower = search_term.lower().strip()
         if search_term_lower:
+            temp_text_for_search_removal = final_cleaned_text
             variations_to_remove = sorted([search_term_lower + "jes", search_term_lower + "en", search_term_lower + "s", search_term_lower], key=len, reverse=True)
-            for var in variations_to_remove: final_cleaned_text = final_cleaned_text.replace(var, "")
-            if search_term_lower.endswith("jes") and len(search_term_lower)>3: final_cleaned_text = final_cleaned_text.replace(search_term_lower[:-3],"")
-            elif search_term_lower.endswith("en") and len(search_term_lower)>2: final_cleaned_text = final_cleaned_text.replace(search_term_lower[:-2],"")
-            elif search_term_lower.endswith("s") and len(search_term_lower)>1: final_cleaned_text = final_cleaned_text.replace(search_term_lower[:-1],"")
-        final_cleaned_text = re.sub(r"\s+", " ", final_cleaned_text).strip()
-    doc = nlp(final_cleaned_text); lemmas = [tok.lemma_.lower() for tok in doc if tok.lemma_.isalpha()] # .lower() hier
+            for var in variations_to_remove:
+                temp_text_for_search_removal = re.sub(r'\b' + re.escape(var) + r'\b', '', temp_text_for_search_removal, flags=re.IGNORECASE)
+            if search_term_lower in temp_text_for_search_removal : 
+                 temp_text_for_search_removal = temp_text_for_search_removal.replace(search_term_lower, "")
+            final_cleaned_text = re.sub(r"\s+", " ", temp_text_for_search_removal).strip()
+    doc = nlp(final_cleaned_text)
+    lemmas = [tok.lemma_.lower() for tok in doc if tok.lemma_.isalpha()]
     lemma_fix = {"varkens":"varken","kippen":"kip","runders":"runder","worsten":"worst","broden":"brood","aardappelen":"aardappel","groenten":"groente","fruiten":"fruit","broodjes":"brood","kips":"kip"}
     corrected_lemmas = [lemma_fix.get(lemma, lemma) for lemma in lemmas]
     filtered_words_set = {word for word in corrected_lemmas if word not in ALL_STOPWORDS}
-    normalized_words = []
+    normalized_words_list = []
     for word in list(filtered_words_set): 
-        if word.endswith("s") and len(word)>4 and (word[:-1] in nlp.vocab) and word[:-1] not in ALL_STOPWORDS :
-             normalized_words.append(word[:-1])
+        if word.endswith("s") and len(word)>4 and (word[:-1] in nlp.vocab) and (word[:-1] not in ALL_STOPWORDS) :
+             normalized_words_list.append(word[:-1])
         else:
-            normalized_words.append(word)
-    return sorted(list(set(normalized_words)))
+            normalized_words_list.append(word)
+    return sorted(list(set(normalized_words_list)))
 
 @st.cache_data(ttl=3600)
 def fetch_supermarket_data(url: str):
@@ -144,28 +171,78 @@ def fetch_supermarket_data(url: str):
         resp = requests.get(url); resp.raise_for_status(); data = resp.json()
     except requests.exceptions.RequestException as e: st.error(f"Fout bij ophalen data: {e}."); return []
     products = []
-    size_unit_pattern = re.compile(r"(\d+[\.,]?\d*)\s*(ml|cl|l|gram|g|kg|stuks?|st|x|per|stuks|stuk|s)\b", re.IGNORECASE)
+    if 'skipped_products_log_fetch' not in st.session_state or st.session_state.get('fetch_url_last_run') != url:
+        st.session_state.skipped_products_log_fetch = []
+        st.session_state.fetch_url_last_run = url
+
+    def parse_size_string_from_text(text_to_parse, product_name_for_context=""):
+        qty, un = None, None
+        if not text_to_parse: return qty, un
+        text_lower = text_to_parse.lower()
+        pers_match = re.search(r"(\d+)(?:\s*-\s*\d+)?\s*(persoon|personen|pers)\b", text_lower)
+        if pers_match: qty = float(pers_match.group(1)); un = "personen"; return qty, un
+        was_match = re.search(r"(\d+)\s*(wasbeurten|wasbeurt)\b", text_lower)
+        if was_match: qty = float(was_match.group(1)); un = "wasbeurten"; return qty, un
+        meter_match = re.search(r"(?:\d+[\.,]?\d*\s*)?(meter|m)\b", text_lower)
+        if meter_match and not any(sub in text_lower for sub in ["ml", "mm", "gram", "mg", "komeet"]): un = "stuks"; qty = 1.0; return qty, un 
+        vellen_match = re.search(r"(?:\d+[\.,]?\d*\s*)?(vellen|vel)\b", text_lower)
+        if vellen_match: un = "stuks"; qty = 1.0; return qty, un
+        kilo_match_with_number = re.search(r"(\d+[\.,]?\d*)\s*(?:per\s+)?(kg|kilo|kilogram|kg1)\b", text_lower)
+        kilo_match_no_number = re.search(r"\b(?:los\s+per\s+|per\s+)?(kg|kilo|kilogram|kg1)\b", text_lower)
+        if kilo_match_with_number:
+            try: num_val = float(kilo_match_with_number.group(1).replace(",", ".")); qty = num_val * 1000; un = "gram"; return qty, un
+            except ValueError: pass
+        elif kilo_match_no_number: qty = 1000.0; un = "gram"; return qty, un
+        size_unit_pattern_with_number = re.compile(r"(\d+[\.,]?\d*)\s*-?(ml|milliliter|milliliters|cl|centiliter|ctl|dl|deciliter|l|liter|lt|ltr|gram|g|gr|stuks?|stk|st|x|rollen|rol|zakjes|zakje|zakken|pak|pack|paar|set)\b",re.IGNORECASE)
+        match_num = size_unit_pattern_with_number.search(text_to_parse) 
+        if match_num:
+            num_str = match_num.group(1).replace(",", "."); raw_unit_str_matched = match_num.group(2).lower()
+            try:
+                num_val = float(num_str)
+                if raw_unit_str_matched in ["ml", "milliliter", "milliliters"]: un = "ml"; qty = num_val 
+                elif raw_unit_str_matched in ["cl", "centiliter", "ctl"]: un = "ml"; qty = num_val * 10
+                elif raw_unit_str_matched in ["dl", "deciliter"]: un = "ml"; qty = num_val * 100
+                elif raw_unit_str_matched in ["l", "liter", "ltr", "lt"]: un = "ml"; qty = num_val * 1000 
+                elif raw_unit_str_matched in ["kg", "kilogram", "kilo", "kg1"]: un = "gram"; qty = num_val * 1000 
+                elif raw_unit_str_matched in ["gram", "g", "gr"]: un = "gram"; qty = num_val
+                elif raw_unit_str_matched in ["stuks", "stuk", "stk", "st", "x", "rollen", "rol", "zakjes", "zakje", "zakken", "pak", "pack", "paar", "set"]: un = "stuks"; qty = num_val
+            except ValueError: pass
+            if qty is not None and un is not None: return qty, un
+        per_unit_pattern = re.compile(r"^(?:per\s+)?(stuk|stuks|stk|bos|zak|net|pakket|fles|blik|doos|rol|zakje|pak|pack|paar|set)\b", re.IGNORECASE)
+        match_unit_only = per_unit_pattern.search(text_lower)
+        if match_unit_only: qty = 1.0; un = "stuks" ; return qty, un
+        fallback_num_match = re.search(r"(\d+[\.,]?\d+)", text_to_parse)
+        if fallback_num_match:
+            try:
+                num_val = float(fallback_num_match.group(1).replace(",","."))
+                if num_val > 100 and not re.search(r"(?:stuk|stuks|stk|rol|zakje|pak|pack|paar|set|fles|blik|doos|bos|net|pakket|wasbeurt|persoon|meter|liter|ltr|lt|ml|cl|dl|kg|gram|gr)", text_lower, re.IGNORECASE):
+                    qty = num_val; un = "gram"; return qty, un
+            except ValueError: pass
+        return qty, un
+
     for entry in data:
         store_code = entry.get("c", "").lower(); store_name = SUPERMARKETS.get(store_code, store_code.capitalize())
         items = entry.get("d") or next((v for v in entry.values() if isinstance(v, list)), [])
         for item_entry in items: 
             name = item_entry.get("n", "").strip(); raw_size_str = item_entry.get("s", "").strip(); price = item_entry.get("p")
             if not name or price is None: continue
-            quantity, unit = None, None
-            match = size_unit_pattern.search(raw_size_str)
-            if match:
-                num_str, raw_unit_str = match.group(1).replace(",", "."), match.group(2).lower()
-                try:
-                    num_val = float(num_str)
-                    if "ml" in raw_unit_str or "cl" in raw_unit_str: unit = "liter"; quantity = num_val / 1000 if "ml" in raw_unit_str else num_val / 100
-                    elif "l" in raw_unit_str: unit = "liter"; quantity = num_val
-                    elif "kg" in raw_unit_str: unit = "gram"; quantity = num_val * 1000
-                    elif "gram" in raw_unit_str or "g" in raw_unit_str: unit = "gram"; quantity = num_val
-                    elif any(u in raw_unit_str for u in ["st", "stuk", "x", "per", "s"]): unit = "stuks"; quantity = num_val
-                except ValueError: pass
-            if quantity is not None and unit is not None: products.append({"Supermarkt": store_name, "Naam": name, "Grootte_Origineel": raw_size_str, "Hoeveelheid": quantity, "Eenheid": unit, "Prijs": float(price)})
+            quantity, unit = None, None; source_of_size = "Onbekend/Default"; grootte_origineel_display = raw_size_str if raw_size_str else "(geen s-veld)"
+            if raw_size_str:
+                quantity, unit = parse_size_string_from_text(raw_size_str, name)
+                if quantity is not None: source_of_size = "Grootte-veld ('s')"
+            if quantity is None and unit is None: 
+                quantity, unit = parse_size_string_from_text(name, name)
+                if quantity is not None: source_of_size = "Productnaam ('n')"; grootte_origineel_display = f"(uit naam: {name})"
+            if quantity is None and unit is None:
+                quantity = 1.0; unit = "stuks"; source_of_size = "Default (1 stuks)"; grootte_origineel_display = f"Onbekend (standaard: 1 stuks) - Origineel 's': '{raw_size_str if raw_size_str else 'Leeg'}'"
+            if quantity is not None and unit is not None: products.append({"Supermarkt": store_name, "Naam": name, "Grootte_Origineel": grootte_origineel_display, "Hoeveelheid": quantity, "Eenheid": unit, "Prijs": float(price)})
+            else:
+                log_entry = {"Naam": name, "Supermarkt": store_name, "Grootte_Origineel": raw_size_str, "Prijs": price, "Reden": "Naam of prijs ontbreekt?"}
+                if log_entry not in st.session_state.skipped_products_log_fetch and len(st.session_state.skipped_products_log_fetch) < 500: st.session_state.skipped_products_log_fetch.append(log_entry)
+    st.session_state.skipped_products_log = list(st.session_state.skipped_products_log_fetch) 
     return products
 
+# --- Functie Definities (vervolg) ---
 def add_to_shopping_list(category, desired_quantities_list, selected_products_for_category):
     filtered_desired_quantities = [dq for dq in desired_quantities_list if dq.get("Hoeveelheid", 0) > 0]
     if not filtered_desired_quantities: st.warning(f"Geen geldige hoeveelheden voor '{category}'."); return
@@ -173,10 +250,18 @@ def add_to_shopping_list(category, desired_quantities_list, selected_products_fo
     new_item_data = {"Categorie": category, "DesiredQuantities": filtered_desired_quantities, "Producten": selected_products_for_category}
     qty_display_strs = []
     for dq in filtered_desired_quantities:
-        hoeveelheid_str = f"{int(dq['Hoeveelheid'])}" if dq['Eenheid'].lower() == "stuks" and dq['Hoeveelheid'] == int(dq['Hoeveelheid']) else f"{dq['Hoeveelheid']}"
-        s = f"{hoeveelheid_str} {dq['Eenheid']}"
-        if dq.get("TolerantiePercentage", 0) > 0 and dq.get("TolerantieWaarde", 0) > 0:
-            s += f" (±{int(dq['TolerantieWaarde'])} {dq['TolerantieEenheid']})"
+        is_stuks_dq = dq['Eenheid'].lower() == "stuks"
+        hoeveelheid_main_val = dq['Hoeveelheid']
+        if is_stuks_dq:
+            hoeveelheid_display_str = str(int(hoeveelheid_main_val)) if hoeveelheid_main_val == int(hoeveelheid_main_val) else str(hoeveelheid_main_val)
+        else:
+            hoeveelheid_display_str = f"{float(hoeveelheid_main_val):.2f}".rstrip('0').rstrip('.') if '.' in f"{float(hoeveelheid_main_val):.2f}" else f"{float(hoeveelheid_main_val):.0f}"
+            if hoeveelheid_display_str == "" and float(hoeveelheid_main_val) == 0 : hoeveelheid_display_str ="0"
+        s = f"{hoeveelheid_display_str} {dq['Eenheid']}"
+        tol_waarde = dq.get("TolerantieWaarde", 0)
+        tol_eenheid = dq.get("TolerantieEenheid")
+        if dq.get("TolerantiePercentage", 0) > 0 and tol_waarde > 0 and tol_eenheid:
+            s += f" (±{int(tol_waarde)} {tol_eenheid})"
         qty_display_strs.append(s)
     if existing_item_index != -1: 
         st.session_state.shopping_list[existing_item_index] = new_item_data
@@ -223,7 +308,13 @@ def calculate_new_item_cost(new_product_data, original_desired_quantities, origi
             current_cost = prijs_product * n_packs_needed
             if current_cost < min_cost:
                 min_cost = current_cost
-                gekozen_optie_display_text_swap = f"{dq_pair['Hoeveelheid']} {dq_pair['Eenheid']}"
+                is_stuks_dq_calc = dq_pair['Eenheid'].lower() == "stuks"
+                hoeveelheid_main_val_calc = dq_pair['Hoeveelheid']
+                if is_stuks_dq_calc:
+                    hoeveelheid_display_dq_calc_str = str(int(hoeveelheid_main_val_calc)) if hoeveelheid_main_val_calc == int(hoeveelheid_main_val_calc) else str(hoeveelheid_main_val_calc)
+                else:
+                    hoeveelheid_display_dq_calc_str = f"{float(hoeveelheid_main_val_calc):.2f}".rstrip('0').rstrip('.') if '.' in f"{float(hoeveelheid_main_val_calc):.2f}" else f"{float(hoeveelheid_main_val_calc):.0f}"
+                gekozen_optie_display_text_swap = f"{hoeveelheid_display_dq_calc_str} {dq_pair['Eenheid']}"
                 if dq_pair.get('TolerantiePercentage',0) > 0 and dq_pair.get('TolerantieWaarde',0) > 0:
                     gekozen_optie_display_text_swap += f" (±{int(dq_pair['TolerantieWaarde'])} {dq_pair['TolerantieEenheid']})"
                 best_option_details = {"shopping_list_item_idx": shopping_list_item_idx_for_swap, "Categorie": original_category_name_for_swap, "Naam": new_product_data["Naam"], "Gekozen voor optie": gekozen_optie_display_text_swap, "Aantal Pakken": n_packs_needed, "Verpakking Grootte": f"{new_product_data['Hoeveelheid']} {new_product_data['Eenheid']}", "Prijs Per Pakket": f"€{new_product_data['Prijs']:.2f}", "Kosten Totaal": f"€{min_cost:.2f}", "is_swapped": True, "original_product_data_if_swapped": None, "raw_product_data": dict(new_product_data), "_original_desired_quantities": original_desired_quantities}
@@ -256,8 +347,13 @@ def run_comparison_and_store_results(shopping_list_items):
                 if current_wish_best_product_at_sup["product"] is not None:
                     if current_wish_best_product_at_sup["cost"] < min_cost_for_item_at_sup:
                         min_cost_for_item_at_sup = current_wish_best_product_at_sup["cost"]; chosen_prod = current_wish_best_product_at_sup["product"]
-                        hoeveelheid_display_comp = int(desired_qty_unit_pair['Hoeveelheid']) if desired_qty_unit_pair['Eenheid'].lower() == "stuks" and desired_qty_unit_pair['Hoeveelheid'] == int(desired_qty_unit_pair['Hoeveelheid']) else desired_qty_unit_pair['Hoeveelheid']
-                        gekozen_optie_display_text = f"{hoeveelheid_display_comp} {desired_qty_unit_pair['Eenheid']}"
+                        is_stuks_compare = desired_qty_unit_pair['Eenheid'].lower() == "stuks"
+                        hoeveelheid_main_val_comp = desired_qty_unit_pair['Hoeveelheid']
+                        if is_stuks_compare:
+                            hoeveelheid_display_comp_str = str(int(hoeveelheid_main_val_comp)) if hoeveelheid_main_val_comp == int(hoeveelheid_main_val_comp) else str(hoeveelheid_main_val_comp)
+                        else:
+                            hoeveelheid_display_comp_str = f"{float(hoeveelheid_main_val_comp):.2f}".rstrip('0').rstrip('.') if '.' in f"{float(hoeveelheid_main_val_comp):.2f}" else f"{float(hoeveelheid_main_val_comp):.0f}"
+                        gekozen_optie_display_text = f"{hoeveelheid_display_comp_str} {desired_qty_unit_pair['Eenheid']}"
                         if desired_qty_unit_pair.get('TolerantiePercentage',0) > 0 and desired_qty_unit_pair.get('TolerantieWaarde',0) > 0:
                             gekozen_optie_display_text += f" (±{int(desired_qty_unit_pair['TolerantieWaarde'])} {desired_qty_unit_pair['TolerantieEenheid']})"
                         best_option_details_for_item_at_sup = {"shopping_list_item_idx": item_idx, "Categorie": category_name, "Naam": chosen_prod["Naam"], "Gekozen voor optie": gekozen_optie_display_text,"Aantal Pakken": current_wish_best_product_at_sup["n_packs"], "Verpakking Grootte": f"{chosen_prod['Hoeveelheid']} {chosen_prod['Eenheid']}", "Prijs Per Pakket": f"€{chosen_prod['Prijs']:.2f}", "Kosten Totaal": f"€{min_cost_for_item_at_sup:.2f}", "is_swapped": False, "original_product_data_if_swapped": None, "raw_product_data": dict(chosen_prod), "_original_desired_quantities": item_in_shopping_list["DesiredQuantities"] }
@@ -277,8 +373,13 @@ def run_comparison_and_store_results(shopping_list_items):
                 dq_for_missing = shopping_list_item_entry_fill.get("DesiredQuantities", [])
                 gekozen_optie_str_missing_list = []
                 for dq_m in dq_for_missing:
-                    hoeveelheid_display_m = int(dq_m['Hoeveelheid']) if dq_m['Eenheid'].lower() == "stuks" and dq_m['Hoeveelheid'] == int(dq_m['Hoeveelheid']) else dq_m['Hoeveelheid']
-                    s_m = f"{hoeveelheid_display_m} {dq_m['Eenheid']}"
+                    is_stuks_m = dq_m['Eenheid'].lower() == "stuks"
+                    hoeveelheid_main_val_m = dq_m['Hoeveelheid']
+                    if is_stuks_m:
+                        hoeveelheid_display_m_str = str(int(hoeveelheid_main_val_m)) if hoeveelheid_main_val_m == int(hoeveelheid_main_val_m) else str(hoeveelheid_main_val_m)
+                    else:
+                        hoeveelheid_display_m_str = f"{float(hoeveelheid_main_val_m):.2f}".rstrip('0').rstrip('.') if '.' in f"{float(hoeveelheid_main_val_m):.2f}" else f"{float(hoeveelheid_main_val_m):.0f}"
+                    s_m = f"{hoeveelheid_display_m_str} {dq_m['Eenheid']}"
                     if dq_m.get("TolerantiePercentage", 0) > 0 and dq_m.get("TolerantieWaarde", 0) > 0: s_m += f" (±{int(dq_m['TolerantieWaarde'])} {dq_m['TolerantieEenheid']})"
                     gekozen_optie_str_missing_list.append(s_m)
                 gekozen_optie_str_missing = ", ".join(gekozen_optie_str_missing_list) if gekozen_optie_str_missing_list else "N.v.t."
@@ -335,6 +436,8 @@ def display_shopping_mode_view():
         st.rerun()
 
 # --- Functie: Hoofd App Weergave ---
+# (Plaats hier de VOLLEDIGE display_main_app_view functie die ik in het VORIGE antwoord gaf,
+#  die de AUTOMATISCHE keyword merging logica bevatte)
 def display_main_app_view():
     try: st.sidebar.image("Checkr Logo.png", width=100) 
     except Exception as e: st.sidebar.warning(f"Kon logo niet laden in sidebar: {e}")
@@ -349,43 +452,83 @@ def display_main_app_view():
         except Exception as e: st.error(f"Kon logo niet laden op hoofdpagina: {e}.")
     st.title("Welkom bij CheckR!") 
     st.header("Zoek producten en voeg toe aan je lijstje")
-    search_term = st.text_input("Typ een zoekterm (bijv. 'braadworst', 'melk', 'brood'):", key="search_input")
+    search_term = st.text_input("Typ een zoekterm (bijv. 'braadworst', 'melk', 'thee'):", key="search_input")
 
     if search_term:
         filtered_products = [p for p in st.session_state.all_products if search_term.lower() in p["Naam"].lower()]
         if filtered_products:
-            # --- START AANGEPAST CATEGORIE-LOGICA BLOK (MET KEYWORD MERGING) ---
+            # --- START VERNIEUWDE CATEGORIE-LOGICA MET AUTOMATISCHE MERGING ---
+            products_with_base_keywords = [] 
+            for p_idx, p_data_dict in enumerate(filtered_products):
+                base_keywords = clean_name(p_data_dict["Naam"], search_term=search_term)
+                products_with_base_keywords.append({'id': p_idx, 'product': p_data_dict, 'base_keywords': set(base_keywords)})
+
+            keyword_to_product_indices = defaultdict(set)
+            for item_data in products_with_base_keywords:
+                for kw in item_data['base_keywords']:
+                    keyword_to_product_indices[kw].add(item_data['id'])
+
+            product_indices_fset_to_keywords_group = defaultdict(set)
+            for kw, product_indices_set in keyword_to_product_indices.items():
+                if product_indices_set: 
+                    product_indices_frozenset = frozenset(product_indices_set)
+                    product_indices_fset_to_keywords_group[product_indices_frozenset].add(kw)
+            
+            dynamic_keyword_merge_rules = {}
+            processed_keywords_in_any_dynamic_rule = set() 
+            
+            sorted_groups = sorted(product_indices_fset_to_keywords_group.items(), key=lambda item: (len(item[1]), len(item[0])), reverse=True)
+
+            for _product_indices_fset, group_of_keywords in sorted_groups:
+                if len(group_of_keywords) >= 2: 
+                    # Check of GEEN van deze keywords al in een (handmatige of grotere dynamische) regel zit
+                    # Dit voorkomt dat een kleiner deel van een al gemergede groep opnieuw een regel vormt.
+                    if not group_of_keywords.intersection(processed_keywords_in_any_dynamic_rule):
+                        # Check ook of de set niet exact overeenkomt met een handmatige regel (die voorrang heeft)
+                        if frozenset(group_of_keywords) not in MANUAL_KEYWORD_MERGE_RULES:
+                            combined_name_parts = sorted([k.capitalize() for k in group_of_keywords])
+                            if len(combined_name_parts) == 2:
+                                combined_name = " ".join(combined_name_parts) 
+                            else:
+                                combined_name = " & ".join(combined_name_parts)
+                            
+                            dynamic_keyword_merge_rules[frozenset(group_of_keywords)] = combined_name
+                            processed_keywords_in_any_dynamic_rule.update(group_of_keywords) # Markeer keywords als verwerkt
+            
+            final_merge_rules = MANUAL_KEYWORD_MERGE_RULES.copy()
+            for dyn_keys, dyn_name in dynamic_keyword_merge_rules.items():
+                if dyn_keys not in final_merge_rules: 
+                    final_merge_rules[dyn_keys] = dyn_name
+            
+            sorted_all_merge_rules = sorted(final_merge_rules.items(), key=lambda item_rule: len(item_rule[0]), reverse=True)
+
             products_with_final_keywords = []
-            for p in filtered_products:
-                base_keywords_for_product = clean_name(p["Naam"], search_term=search_term)
-                
-                processed_keywords_for_product_set = set(base_keywords_for_product) 
-                final_keywords_for_product_set = set() 
-                individual_keywords_already_merged = set()
+            for item_data in products_with_base_keywords:
+                p_dict = item_data['product']
+                current_processing_keywords = set(item_data['base_keywords']) 
+                final_keywords_for_this_product = set()
+                keywords_merged_this_product = set()
 
-                sorted_merge_rules = sorted(KEYWORD_MERGE_RULES.items(), key=lambda item: len(item[0]), reverse=True)
-
-                for merge_set_keys, combined_name in sorted_merge_rules:
-                    if merge_set_keys.issubset(processed_keywords_for_product_set) and not merge_set_keys.intersection(individual_keywords_already_merged):
-                        final_keywords_for_product_set.add(combined_name)
-                        individual_keywords_already_merged.update(merge_set_keys)
+                for merge_set_keys, combined_name in sorted_all_merge_rules: # Gebruik de gecombineerde en gesorteerde lijst
+                    if merge_set_keys.issubset(current_processing_keywords) and not merge_set_keys.intersection(keywords_merged_this_product):
+                        final_keywords_for_this_product.add(combined_name)
+                        keywords_merged_this_product.update(merge_set_keys)
                 
-                for kw in processed_keywords_for_product_set:
-                    if kw not in individual_keywords_already_merged:
-                        final_keywords_for_product_set.add(kw)
+                for kw in current_processing_keywords:
+                    if kw not in keywords_merged_this_product:
+                        final_keywords_for_this_product.add(kw)
                 
-                products_with_final_keywords.append((p, list(final_keywords_for_product_set)))
-
+                products_with_final_keywords.append((p_dict, list(final_keywords_for_this_product)))
+            
             word_super_counts = defaultdict(set)
             for p_tuple_entry, final_kw_list_for_p in products_with_final_keywords:
                 p_data = p_tuple_entry 
                 for w in final_kw_list_for_p: 
                     word_super_counts[w].add(p_data["Supermarkt"])
-            # --- EINDE AANGEPAST CATEGORIE-LOGICA BLOK ---
+            # --- EINDE VERNIEUWDE CATEGORIE-LOGICA ---
             
             radio_options_for_display_struct = []
             generic_products_by_super = defaultdict(list)
-            # Gebruik products_with_final_keywords om generic_products_by_super te vullen
             for p_generic_tuple, final_keywords_list_for_p_generic in products_with_final_keywords:
                 if not final_keywords_list_for_p_generic: 
                     generic_products_by_super[p_generic_tuple["Supermarkt"]].append(p_generic_tuple)
@@ -398,25 +541,33 @@ def display_main_app_view():
                     "display_text": f"{search_term_capitalized} (algemeen) ({num_supers_for_generic})",
                     "actual_name": search_term_capitalized, 
                     "is_generic": True,
-                    "count_for_sort": num_supers_for_generic + 0.5 
+                    "count_for_sort": num_supers_for_generic + 0.51 
                 })
 
             temp_specific_categories = []
             for word, supers_set in word_super_counts.items():
-                if len(supers_set) > 1: 
+                num_supers_for_word = len(supers_set)
+                if num_supers_for_word > 1: 
+                    display_name = word 
+                    if not any(char.isupper() for char in word) and " & " not in word : 
+                        display_name = word.capitalize()
                     temp_specific_categories.append({
-                        "display_text": f"{word.capitalize()} ({len(supers_set)})", 
-                        "actual_name": word,
+                        "display_text": f"{display_name} ({num_supers_for_word})", 
+                        "actual_name": word, 
                         "is_generic": False, 
-                        "count_for_sort": len(supers_set)
+                        "count_for_sort": num_supers_for_word
                     })
             
+            final_display_options = [] # Herinitialiseer voor correcte sortering
+            if num_supers_for_generic > 0: # Voeg generiek toe als het bestaat
+                 final_display_options.append(next(opt for opt in radio_options_for_display_struct if opt["is_generic"]))
+            
             temp_specific_categories.sort(key=lambda x: x["count_for_sort"], reverse=True)
-            radio_options_for_display_struct.extend(temp_specific_categories)
+            final_display_options.extend(temp_specific_categories)
             
             unique_display_options = []
             seen_display_texts = set()
-            for option in radio_options_for_display_struct:
+            for option in final_display_options:
                 if option["display_text"] not in seen_display_texts:
                     unique_display_options.append(option)
                     seen_display_texts.add(option["display_text"])
@@ -432,8 +583,10 @@ def display_main_app_view():
                 default_combined_name = search_term.capitalize()
                 if len(selected_sub_category_display_strings) == 1:
                     single_selected_option_data = next((opt for opt in final_radio_options_data if opt["display_text"] == selected_sub_category_display_strings[0]), None)
-                    if single_selected_option_data: default_combined_name = single_selected_option_data["actual_name"].capitalize()
+                    if single_selected_option_data: default_combined_name = single_selected_option_data["actual_name"] 
                 elif len(selected_sub_category_display_strings) > 1: default_combined_name = f"{search_term.capitalize()} (gecombineerd)"
+                if not any(c.isupper() for c in default_combined_name) and '&' not in default_combined_name:
+                    default_combined_name = default_combined_name.capitalize()
                 combined_category_name = st.text_input("Geef een naam voor deze selectie (druk Enter om te bevestigen):", value=default_combined_name, key=f"combined_cat_name_input_{search_term}_{'_'.join(sorted(selected_sub_category_display_strings))}").strip()
                 if combined_category_name:
                     aggregated_products = []; product_identifiers_added = set()
@@ -462,70 +615,40 @@ def display_main_app_view():
                             for unit_option_comb in unique_units_combined:
                                 st.markdown(f"**Optie voor eenheid: {unit_option_comb}**")
                                 is_stuks = unit_option_comb.lower() == "stuks"
-                                main_step = 1.0 if is_stuks else 0.01 
-                                main_format = "%d" if is_stuks else "%.2f"
-
                                 main_qty_key = f"main_qty_COMBINED_{combined_category_name}_{unit_option_comb}_{search_term}"
-                                main_qty = st.number_input(
-                                    "Basishoeveelheid",
-                                    min_value=0.0, value=st.session_state.get(main_qty_key, 0.0), step=main_step, format=main_format,
-                                    key=main_qty_key, label_visibility="collapsed", 
-                                    help=f"Voer de gewenste basishoeveelheid in {unit_option_comb} in."
-                                )
-                                
-                                tolerance_percentage_input = 0
-                                abs_tolerance_value_calculated = 0
-                                
+                                if is_stuks:
+                                    main_step = 1 ; main_format = "%d"; main_qty_default_val = int(st.session_state.get(main_qty_key, 0)); min_val_for_input = 0 
+                                else:
+                                    main_step = 0.01 ; main_format = "%.2f"; main_qty_default_val = float(st.session_state.get(main_qty_key, 0.0)); min_val_for_input = 0.0
+                                main_qty = st.number_input("Basishoeveelheid", min_value=min_val_for_input, value=main_qty_default_val, step=main_step, format=main_format, key=main_qty_key, label_visibility="collapsed", help=f"Voer de gewenste basishoeveelheid in {unit_option_comb} in.")
+                                tolerance_percentage_input = 0; abs_tolerance_value_calculated = 0
                                 if main_qty > 0:
                                     slider_key = f"tol_perc_slider_{combined_category_name}_{unit_option_comb}_{search_term}"
-                                    
-                                    # Bereken eerst de actuele absolute tolerantie voor weergave
-                                    current_slider_percentage = st.session_state.get(slider_key, 0)
-                                    current_abs_tolerance = 0
-                                    if current_slider_percentage > 0:
-                                        current_abs_tolerance = round(main_qty * (current_slider_percentage / 100.0))
-                                        if current_abs_tolerance == 0 and (main_qty * (current_slider_percentage / 100.0)) >= 0.5:
-                                            if main_qty >= 2 or not is_stuks: current_abs_tolerance = 1
-                                        max_abs_tol_allowed_display = math.floor(0.5 * main_qty)
-                                        if current_abs_tolerance > max_abs_tol_allowed_display: current_abs_tolerance = max_abs_tol_allowed_display
-                                        if current_abs_tolerance < 1: current_abs_tolerance = 0
-                                    
-                                    if current_slider_percentage > 0 and current_abs_tolerance > 0:
-                                        st.caption(f"Geselecteerde tolerantie: {main_qty} {unit_option_comb} **± {current_abs_tolerance} {unit_option_comb}** ({current_slider_percentage}%)")
-                                    elif current_slider_percentage > 0 and current_abs_tolerance == 0:
-                                         st.caption(f"Tolerantie van {current_slider_percentage}% is te klein (resulteert in ±0 {unit_option_comb}).")
-                                    else:
-                                        st.caption("Geen tolerantie geselecteerd (0%). Sleep slider om in te stellen.")
-
-                                    tolerance_percentage_input = st.slider(
-                                        f"Tolerantie (±%)",
-                                        min_value=0, max_value=50, 
-                                        value=current_slider_percentage, # Gebruik waarde uit session state
-                                        step=1, format="%d%%",
-                                        key=slider_key, 
-                                        help=f"Max 50% van {main_qty} {unit_option_comb}."
-                                    )
-                                    
-                                    if tolerance_percentage_input > 0: # Herbereken na slider interactie
-                                        abs_tolerance_value_calculated = round(main_qty * (tolerance_percentage_input / 100.0))
-                                        if abs_tolerance_value_calculated == 0 and (main_qty * (tolerance_percentage_input / 100.0)) >= 0.5:
-                                            if main_qty >= 2 or not is_stuks : abs_tolerance_value_calculated = 1
-                                        max_abs_tol_allowed_calc = math.floor(0.5 * main_qty)
+                                    current_slider_value = st.session_state.get(slider_key, 0)
+                                    temp_abs_tolerance_display = 0
+                                    if current_slider_value > 0:
+                                        temp_abs_tolerance_display = round(float(main_qty) * (current_slider_value / 100.0))
+                                        if temp_abs_tolerance_display == 0 and (float(main_qty) * (current_slider_value / 100.0)) >= 0.5:
+                                            if float(main_qty) >= 2 or not is_stuks: temp_abs_tolerance_display = 1
+                                        max_allowed_temp = math.floor(0.5 * float(main_qty))
+                                        if temp_abs_tolerance_display > max_allowed_temp: temp_abs_tolerance_display = max_allowed_temp
+                                        if temp_abs_tolerance_display < 1 and current_slider_value > 0 : temp_abs_tolerance_display = 0
+                                    if current_slider_value > 0 and temp_abs_tolerance_display > 0: st.caption(f"Ingestelde tolerantie: {main_qty} {unit_option_comb} **± {temp_abs_tolerance_display} {unit_option_comb}** ({current_slider_value}%)")
+                                    elif current_slider_value > 0: st.caption(f"Tolerantie van {current_slider_value}% is te klein (resulteert in ±0 {unit_option_comb}).")
+                                    else: st.caption("Geen tolerantie geselecteerd (0%). Sleep slider om in te stellen.")
+                                    tolerance_percentage_input = st.slider(f"Tolerantie (±%) voor {main_qty} {unit_option_comb}", min_value=0, max_value=50, value=current_slider_value, step=1, format="%d%%", key=slider_key, help=f"Max 50% van {main_qty} {unit_option_comb}.")
+                                    if tolerance_percentage_input > 0: 
+                                        abs_tolerance_value_calculated = round(float(main_qty) * (tolerance_percentage_input / 100.0))
+                                        if abs_tolerance_value_calculated == 0 and (float(main_qty) * (tolerance_percentage_input / 100.0)) >= 0.5:
+                                            if float(main_qty) >= 2 or not is_stuks : abs_tolerance_value_calculated = 1
+                                        max_abs_tol_allowed_calc = math.floor(0.5 * float(main_qty))
                                         if abs_tolerance_value_calculated > max_abs_tol_allowed_calc: abs_tolerance_value_calculated = max_abs_tol_allowed_calc
                                         if abs_tolerance_value_calculated < 1: abs_tolerance_value_calculated = 0
-                                else: 
-                                    st.caption("Voer eerst een basishoeveelheid (>0) in om tolerantie in te stellen.")
-                                
+                                else: st.caption("Voer eerst een basishoeveelheid (>0) in om tolerantie in te stellen.")
                                 if main_qty > 0: 
-                                    desired_quantities_inputs_combined.append({
-                                        "Hoeveelheid": int(main_qty) if is_stuks and main_qty == int(main_qty) else main_qty, 
-                                        "Eenheid": unit_option_comb,
-                                        "TolerantiePercentage": tolerance_percentage_input,
-                                        "TolerantieWaarde": int(abs_tolerance_value_calculated), 
-                                        "TolerantieEenheid": unit_option_comb if tolerance_percentage_input > 0 and abs_tolerance_value_calculated > 0 else None
-                                    })
+                                    stored_main_qty = int(main_qty) if is_stuks and main_qty == int(main_qty) else float(main_qty)
+                                    desired_quantities_inputs_combined.append({"Hoeveelheid": stored_main_qty, "Eenheid": unit_option_comb, "TolerantiePercentage": tolerance_percentage_input, "TolerantieWaarde": int(abs_tolerance_value_calculated), "TolerantieEenheid": unit_option_comb if tolerance_percentage_input > 0 and abs_tolerance_value_calculated > 0 else None})
                                 st.markdown("---") 
-                            
                             if st.button(f"Voeg '{combined_category_name}' met opgegeven opties toe aan lijstje", key=f"add_btn_COMBINED_{combined_category_name}_{search_term}"):
                                 add_to_shopping_list(combined_category_name, desired_quantities_inputs_combined, aggregated_products)
                         else: st.info(f"Geen bruikbare eenheden voor producten in '{combined_category_name}'.")
@@ -534,24 +657,52 @@ def display_main_app_view():
 
     st.header("Jouw Mandje") 
     if st.session_state.shopping_list:
-        list_for_display = []
-        for idx, item_data_main in enumerate(st.session_state.shopping_list): 
-            qty_strs = []
-            for dq in item_data_main["DesiredQuantities"]:
-                hoeveelheid_display = int(dq['Hoeveelheid']) if dq['Eenheid'].lower() == "stuks" and dq['Hoeveelheid'] == int(dq['Hoeveelheid']) else dq['Hoeveelheid']
-                qty_str = f"{hoeveelheid_display} {dq['Eenheid']}"
-                if dq.get("TolerantiePercentage", 0) > 0 and dq.get("TolerantieWaarde", 0) > 0:
-                    qty_str += f" (±{int(dq['TolerantieWaarde'])} {dq['TolerantieEenheid']})"
-                qty_strs.append(qty_str)
-            list_for_display.append({"Nr.": idx + 1, "Categorie": item_data_main["Categorie"], "Gewenste 'OF'-opties": ", ".join(qty_strs) if qty_strs else "Geen specifieke hoeveelheden"})
-        st.dataframe(list_for_display, hide_index=True, use_container_width=True)
-        if st.button("Vergelijk Prijzen", key="vergelijk_prijzen_hoofd_knop"):
-            run_comparison_and_store_results(st.session_state.shopping_list) 
-            st.session_state.active_swap = None; st.rerun() 
+        # ... (Rest van "Jouw Mandje" en "Vergelijkingsresultaten" weergave blijft hetzelfde) ...
+        if not st.session_state.shopping_list:
+            st.info("Je boodschappenlijstje is momenteel leeg.")
+        else:
+            for idx, item_data_main in enumerate(st.session_state.shopping_list):
+                col1_item, col2_remove = st.columns([0.9, 0.1]) 
+                with col1_item:
+                    qty_strs = []
+                    for dq in item_data_main["DesiredQuantities"]:
+                        is_stuks_dq_display = dq['Eenheid'].lower() == "stuks"
+                        hoeveelheid_main_val_display = dq['Hoeveelheid']
+                        if is_stuks_dq_display:
+                            hoeveelheid_display_str_val = str(int(hoeveelheid_main_val_display)) if hoeveelheid_main_val_display == int(hoeveelheid_main_val_display) else str(hoeveelheid_main_val_display)
+                        else:
+                            hoeveelheid_display_str_val = f"{float(hoeveelheid_main_val_display):.2f}".rstrip('0').rstrip('.') if '.' in f"{float(hoeveelheid_main_val_display):.2f}" else f"{float(hoeveelheid_main_val_display):.0f}"
+                            if hoeveelheid_display_str_val == "" and float(hoeveelheid_main_val_display) == 0: hoeveelheid_display_str_val = "0"
+                        qty_str = f"{hoeveelheid_display_str_val} {dq['Eenheid']}"
+                        if dq.get("TolerantiePercentage", 0) > 0 and dq.get("TolerantieWaarde", 0) > 0:
+                            qty_str += f" (±{int(dq['TolerantieWaarde'])} {dq['TolerantieEenheid']})"
+                        qty_strs.append(qty_str)
+                    st.markdown(f"**{idx + 1}. {item_data_main['Categorie']}**")
+                    st.caption(f"Gewenste 'OF'-opties: {', '.join(qty_strs) if qty_strs else 'Geen'}")
+                with col2_remove:
+                    remove_button_key = f"remove_item_btn_{idx}_{item_data_main['Categorie'].replace(' ','_')}" 
+                    if st.button("🗑️", key=remove_button_key, help=f"Verwijder '{item_data_main['Categorie']}' uit lijstje"):
+                        removed_item = st.session_state.shopping_list.pop(idx) 
+                        st.success(f"'{removed_item['Categorie']}' verwijderd!")
+                        if 'comparison_results' in st.session_state: del st.session_state.comparison_results
+                        if 'active_swap' in st.session_state: del st.session_state.active_swap
+                        st.rerun()
+                st.markdown("---") 
+        
+        if st.session_state.shopping_list: 
+            if st.button("Vergelijk Prijzen", key="vergelijk_prijzen_hoofd_knop"):
+                run_comparison_and_store_results(st.session_state.shopping_list) 
+                st.session_state.active_swap = None; st.rerun() 
     else: 
         st.info("Je boodschappenlijstje is leeg.") 
         if 'comparison_results' in st.session_state: del st.session_state.comparison_results
         if 'active_swap' in st.session_state: del st.session_state.active_swap
+
+    if st.session_state.get('skipped_products_log') and len(st.session_state.skipped_products_log) > 0:
+        st.markdown("---") 
+        with st.expander(f"Overgeslagen producten bij laden ({len(st.session_state.skipped_products_log)} voorbeelden)", expanded=False):
+            st.caption("Deze producten konden niet worden ingeladen omdat hun 'grootte' informatie niet direct herkend werd.")
+            st.dataframe(st.session_state.skipped_products_log)
 
     if 'comparison_results' in st.session_state and st.session_state.comparison_results is not None:
         results = st.session_state.comparison_results; summary_entries = results.get("summary", []) 
