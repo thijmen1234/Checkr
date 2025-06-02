@@ -11,7 +11,7 @@ import json
 try:
     st.set_page_config(layout="centered", page_title="Welkom bij CheckR!", page_icon="Checkr Logo.png")
 except Exception as e:
-    st.set_page_config(layout="centered", page_title="CheckR") 
+    st.set_page_config(layout="centered", page_title="CheckR")
     st.error(f"Kon logo niet laden als page_icon: {e}. Zorg dat 'Checkr Logo.png' in de juiste map staat.")
 
 # --- Custom CSS Styling ---
@@ -117,6 +117,20 @@ MANUAL_KEYWORD_MERGE_RULES = {
     frozenset({"earl", "grey"}): "Earl Grey", # Handmatig toegevoegd voor betere naamgeving
 }
 
+# --- GLOBALE SORTEERFUNCTIE ---
+def get_product_sort_key(product_row_data):
+    product_naam_lower = product_row_data.get("Naam", "").lower()
+    is_missing = "(ontbreekt)" in product_naam_lower
+
+    category_value = product_row_data.get("Categorie")
+    if category_value is None:
+        category_value = ""  # Standaard naar lege string om NoneType error te voorkomen
+
+    # Sorteervolgorde:
+    # 1. Ontbrekende items eerst (False komt voor True bij sorteren)
+    # 2. Daarna op categorie (alfabetisch)
+    return (not is_missing, category_value)
+
 # --- Session State Initialisatie ---
 if 'shopping_list' not in st.session_state: st.session_state.shopping_list = []
 if 'all_products' not in st.session_state: st.session_state.all_products = []
@@ -150,7 +164,7 @@ def clean_name(name, search_term=None):
             for var in variations_to_remove:
                 temp_text_for_search_removal = re.sub(r'\b' + re.escape(var) + r'\b', '', temp_text_for_search_removal, flags=re.IGNORECASE)
             if search_term_lower in temp_text_for_search_removal : 
-                 temp_text_for_search_removal = temp_text_for_search_removal.replace(search_term_lower, "")
+                temp_text_for_search_removal = temp_text_for_search_removal.replace(search_term_lower, "")
             final_cleaned_text = re.sub(r"\s+", " ", temp_text_for_search_removal).strip()
     doc = nlp(final_cleaned_text)
     lemmas = [tok.lemma_.lower() for tok in doc if tok.lemma_.isalpha()]
@@ -160,7 +174,7 @@ def clean_name(name, search_term=None):
     normalized_words_list = []
     for word in list(filtered_words_set): 
         if word.endswith("s") and len(word)>4 and (word[:-1] in nlp.vocab) and (word[:-1] not in ALL_STOPWORDS) :
-             normalized_words_list.append(word[:-1])
+            normalized_words_list.append(word[:-1])
         else:
             normalized_words_list.append(word)
     return sorted(list(set(normalized_words_list)))
@@ -360,6 +374,7 @@ def run_comparison_and_store_results(shopping_list_items):
             if best_option_details_for_item_at_sup:
                 totaal_per_supermarkt[sup_name] += min_cost_for_item_at_sup; details_per_super[sup_name].append(best_option_details_for_item_at_sup); item_status_per_super[sup_name]["gevonden_categorien"].add(category_name)
             else: item_status_per_super[sup_name]["ontbrekende_categorien"].add(category_name)
+    
     for sup_name in all_configured_supermarket_names:
         if not (item_status_per_super[sup_name]["gevonden_categorien"] or item_status_per_super[sup_name]["ontbrekende_categorien"]):
             if len(shopping_list_items) > 0: 
@@ -385,6 +400,7 @@ def run_comparison_and_store_results(shopping_list_items):
                 gekozen_optie_str_missing = ", ".join(gekozen_optie_str_missing_list) if gekozen_optie_str_missing_list else "N.v.t."
                 details_per_super[sup_name].append({"shopping_list_item_idx":item_idx_fill, "Categorie":cat_naam_fill, "Naam":f"{cat_naam_fill} (ontbreekt)", "Gekozen voor optie": gekozen_optie_str_missing, "Aantal Pakken":"-", "Verpakking Grootte":"-", "Prijs Per Pakket":"-", "Kosten Totaal":"N.v.t.", "is_swapped":False, "original_product_data_if_swapped":None, "raw_product_data":None, "_original_desired_quantities": dq_for_missing})
                 item_status_per_super[sup_name]["ontbrekende_categorien"].add(cat_naam_fill)
+    
     summary_entries_for_sorting = []
     for sup_name in all_configured_supermarket_names:
         num_found = len(item_status_per_super[sup_name]["gevonden_categorien"]); num_missing = len(shopping_list_items) - num_found
@@ -397,7 +413,23 @@ def run_comparison_and_store_results(shopping_list_items):
         elif num_missing > 0 and num_found > 0 : price_str += "*" 
         summary_entries_for_sorting.append({"Supermarkt":sup_name, "Totaalprijs_str":price_str, "Status_str":status_text, "_sort_missing_count":num_missing, "_sort_raw_total":raw_total if num_found > 0 else float('inf')})
     summary_entries_for_sorting.sort(key=lambda x: (x["_sort_missing_count"], x["_sort_raw_total"]))
-    st.session_state.comparison_results = {"summary":summary_entries_for_sorting, "details":defaultdict(list, {k: list(v) for k, v in details_per_super.items()}), "item_status":defaultdict(lambda: {"gevonden_categorien":set(), "ontbrekende_categorien":set()}, {k: {"gevonden_categorien":set(v["gevonden_categorien"]), "ontbrekende_categorien":set(v["ontbrekende_categorien"])} for k,v in item_status_per_super.items()}), "totals":defaultdict(float, totaal_per_supermarkt)}
+    
+    # Maak een nieuwe dictionary voor de gesorteerde details
+    # en gebruik de globale sorteerfunctie get_product_sort_key
+    sorted_details_data = defaultdict(list)
+    for sup_name, product_list in details_per_super.items():
+        sorted_details_data[sup_name] = sorted(product_list, key=get_product_sort_key) # GEWIJZIGD
+
+    # Gebruik de gesorteerde details bij het opslaan in session state
+    st.session_state.comparison_results = {
+        "summary": summary_entries_for_sorting,
+        "details": sorted_details_data, # HIER GEBRUIK JE DE GESORTEERDE DATA
+        "item_status": defaultdict(lambda: {"gevonden_categorien":set(), "ontbrekende_categorien":set()}, {k: {"gevonden_categorien":set(v["gevonden_categorien"]), "ontbrekende_categorien":set(v["ontbrekende_categorien"])} for k,v in item_status_per_super.items()}),
+        "totals": defaultdict(float, totaal_per_supermarkt)
+    }
+    # De volgende regel was dubbel en verwees naar de ongesorteerde details_per_super, verwijderd:
+    # st.session_state.comparison_results = {"summary":summary_entries_for_sorting, "details":defaultdict(list, {k: list(v) for k, v in details_per_super.items()}), "item_status":defaultdict(lambda: {"gevonden_categorien":set(), "ontbrekende_categorien":set()}, {k: {"gevonden_categorien":set(v["gevonden_categorien"]), "ontbrekende_categorien":set(v["ontbrekende_categorien"])} for k,v in item_status_per_super.items()}), "totals":defaultdict(float, totaal_per_supermarkt)}
+
 
 # --- Functie: Weergave Boodschappen Modus ---
 def display_shopping_mode_view():
@@ -436,8 +468,6 @@ def display_shopping_mode_view():
         st.rerun()
 
 # --- Functie: Hoofd App Weergave ---
-# (Plaats hier de VOLLEDIGE display_main_app_view functie die ik in het VORIGE antwoord gaf,
-#  die de AUTOMATISCHE keyword merging logica bevatte)
 def display_main_app_view():
     try: st.sidebar.image("Checkr Logo.png", width=100) 
     except Exception as e: st.sidebar.warning(f"Kon logo niet laden in sidebar: {e}")
@@ -481,10 +511,7 @@ def display_main_app_view():
 
             for _product_indices_fset, group_of_keywords in sorted_groups:
                 if len(group_of_keywords) >= 2: 
-                    # Check of GEEN van deze keywords al in een (handmatige of grotere dynamische) regel zit
-                    # Dit voorkomt dat een kleiner deel van een al gemergede groep opnieuw een regel vormt.
                     if not group_of_keywords.intersection(processed_keywords_in_any_dynamic_rule):
-                        # Check ook of de set niet exact overeenkomt met een handmatige regel (die voorrang heeft)
                         if frozenset(group_of_keywords) not in MANUAL_KEYWORD_MERGE_RULES:
                             combined_name_parts = sorted([k.capitalize() for k in group_of_keywords])
                             if len(combined_name_parts) == 2:
@@ -493,7 +520,7 @@ def display_main_app_view():
                                 combined_name = " & ".join(combined_name_parts)
                             
                             dynamic_keyword_merge_rules[frozenset(group_of_keywords)] = combined_name
-                            processed_keywords_in_any_dynamic_rule.update(group_of_keywords) # Markeer keywords als verwerkt
+                            processed_keywords_in_any_dynamic_rule.update(group_of_keywords) 
             
             final_merge_rules = MANUAL_KEYWORD_MERGE_RULES.copy()
             for dyn_keys, dyn_name in dynamic_keyword_merge_rules.items():
@@ -509,7 +536,7 @@ def display_main_app_view():
                 final_keywords_for_this_product = set()
                 keywords_merged_this_product = set()
 
-                for merge_set_keys, combined_name in sorted_all_merge_rules: # Gebruik de gecombineerde en gesorteerde lijst
+                for merge_set_keys, combined_name in sorted_all_merge_rules: 
                     if merge_set_keys.issubset(current_processing_keywords) and not merge_set_keys.intersection(keywords_merged_this_product):
                         final_keywords_for_this_product.add(combined_name)
                         keywords_merged_this_product.update(merge_set_keys)
@@ -545,22 +572,36 @@ def display_main_app_view():
                 })
 
             temp_specific_categories = []
+
+            
             for word, supers_set in word_super_counts.items():
                 num_supers_for_word = len(supers_set)
                 if num_supers_for_word > 1: 
-                    display_name = word 
-                    if not any(char.isupper() for char in word) and " & " not in word : 
-                        display_name = word.capitalize()
-                    temp_specific_categories.append({
-                        "display_text": f"{display_name} ({num_supers_for_word})", 
+                    search_term_display_prefix = search_term.capitalize()
+                    word_display_suffix = word
+                    if ' ' not in word and '&' not in word and not any(char.isupper() for char in word):
+                        word_display_suffix = word.capitalize()
+                    
+                    effective_display_name = ""
+                    if search_term_display_prefix.lower() == word_display_suffix.lower():
+                        effective_display_name = word_display_suffix 
+                    else:
+                        effective_display_name = f"{search_term_display_prefix} {word_display_suffix}"
+                    
+                    item_dict = {
+                        "display_text": f"{effective_display_name} ({num_supers_for_word})",
                         "actual_name": word, 
-                        "is_generic": False, 
+                        "is_generic": False,
                         "count_for_sort": num_supers_for_word
-                    })
-            
-            final_display_options = [] # Herinitialiseer voor correcte sortering
-            if num_supers_for_generic > 0: # Voeg generiek toe als het bestaat
-                 final_display_options.append(next(opt for opt in radio_options_for_display_struct if opt["is_generic"]))
+                    }
+                    temp_specific_categories.append(item_dict)
+            radio_options_for_display_struct.extend(temp_specific_categories)
+            radio_options_for_display_struct.sort(key=lambda x: (not x["is_generic"], -x["count_for_sort"]))
+
+
+            final_display_options = [] 
+            if num_supers_for_generic > 0: 
+                final_display_options.append(next(opt for opt in radio_options_for_display_struct if opt["is_generic"]))
             
             temp_specific_categories.sort(key=lambda x: x["count_for_sort"], reverse=True)
             final_display_options.extend(temp_specific_categories)
@@ -657,7 +698,6 @@ def display_main_app_view():
 
     st.header("Jouw Mandje") 
     if st.session_state.shopping_list:
-        # ... (Rest van "Jouw Mandje" en "Vergelijkingsresultaten" weergave blijft hetzelfde) ...
         if not st.session_state.shopping_list:
             st.info("Je boodschappenlijstje is momenteel leeg.")
         else:
@@ -715,39 +755,59 @@ def display_main_app_view():
         else: st.info("Geen supermarkten te vergelijken (na filtering).")
         st.subheader("📋 Prijsdetail per Supermarkt")
         if not summary_entries and st.session_state.shopping_list: st.info("Geen details te tonen.")
-        else:
+        else: 
             for summary_idx, entry in enumerate(summary_entries): 
                 sup_name = entry["Supermarkt"]
-                with st.container(): 
-                    st.markdown(f"#### {sup_name} (Totaal: {entry['Totaalprijs_str']})")
-                    current_supermarket_details_list = details_data.get(sup_name, [])
-                    sorted_rows_for_sup = sorted(current_supermarket_details_list, key=lambda x: x["Categorie"]) 
-                    if sorted_rows_for_sup:
-                        for detail_idx, row_data in enumerate(sorted_rows_for_sup):
+                expander_label = f"{sup_name} (Totaal: {entry['Totaalprijs_str']}) - Klik om producten te zien/wisselen"
+                
+                with st.expander(expander_label, expanded=False): 
+                    # Haal de reeds gesorteerde lijst op
+                    rows_to_display = details_data.get(sup_name, []) # GEWIJZIGD: geen extra sortering hier
+                    
+                    if rows_to_display:
+                        for detail_idx, row_data in enumerate(rows_to_display):
+                            product_naam_lower = row_data.get("Naam", "").lower() 
+                            is_missing_item = "(ontbreekt)" in product_naam_lower
+
+                            item_display_name = row_data.get('Naam', 'Onbekend product') 
+                            if row_data.get('is_swapped'): 
+                                item_display_name += " (Gewisseld)"
+
                             item_cols = st.columns([5, 1]) 
                             with item_cols[0]:
-                                item_display_name = row_data['Naam']; 
-                                if row_data.get('is_swapped'): item_display_name += " (Gewisseld)"
-                                st.markdown(f"**{row_data['Categorie']}**: {item_display_name}")
-                                gekozen_optie_display = row_data['Gekozen voor optie']
-                                st.caption(f"Keuze: {gekozen_optie_display} | Aantal: {row_data['Aantal Pakken']}x | Kosten: {row_data['Kosten Totaal']}")
-                            with item_cols[1]:
-                                swap_button_key = f"start_swap_{sup_name.replace(' ', '_')}_{detail_idx}_{summary_idx}_{row_data['Categorie'].replace(' ', '_')}" 
-                                if st.button("🔁", key=swap_button_key, help=f"Wissel '{row_data['Naam']}' bij {sup_name}"):
+                                if is_missing_item:
+                                    st.markdown(
+                                        f"<span style='font-weight:bold;'>► {row_data.get('Categorie', 'N/A')}</span>: <span style='color: #F87575;'>{item_display_name}</span>",
+                                        unsafe_allow_html=True
+                                    )
+                                    st.caption("Dit product is niet direct gevonden. Klik 🔁 om een alternatief te zoeken.")
+                                else:
+                                    st.markdown(f"**{row_data.get('Categorie', 'N/A')}**: {item_display_name}")
+                                    
+                                    gekozen_optie_display = row_data.get('Gekozen voor optie', 'N/A')
+                                    aantal_pakken_display = row_data.get('Aantal Pakken', 'N/A')
+                                    kosten_totaal_display = row_data.get('Kosten Totaal', 'N/A')
+                                    st.caption(f"Keuze: {gekozen_optie_display} | Aantal: {aantal_pakken_display}x | Kosten: {kosten_totaal_display}")
+                            
+                            with item_cols[1]: 
+                                swap_button_key = f"start_swap_{sup_name.replace(' ', '_')}_{detail_idx}_{summary_idx}_{row_data.get('Categorie', 'NOCAT').replace(' ', '_')}" 
+                                if st.button("🔁", key=swap_button_key, help=f"Wissel '{row_data.get('Naam', 'Product')}' bij {sup_name}"):
                                     original_sl_item_idx = row_data.get("shopping_list_item_idx", -1)
                                     original_desired_quantities_for_swap = row_data.get("_original_desired_quantities", []) 
                                     if not original_desired_quantities_for_swap and original_sl_item_idx != -1 and original_sl_item_idx < len(st.session_state.shopping_list): 
                                         original_desired_quantities_for_swap = st.session_state.shopping_list[original_sl_item_idx]["DesiredQuantities"]
-                                    st.session_state.active_swap = {"sup_name": sup_name, "detail_item_index": detail_idx, "original_item_data": dict(row_data), "original_category_name": row_data["Categorie"], "original_shopping_list_item_idx": original_sl_item_idx, "original_desired_quantities": original_desired_quantities_for_swap }
-                                    if f"swap_search_term_{sup_name}_{detail_idx}" in st.session_state: del st.session_state[f"swap_search_term_{sup_name}_{detail_idx}"]
+                                    st.session_state.active_swap = {
+                                        "sup_name": sup_name, 
+                                        "detail_item_index": detail_idx, 
+                                        "original_item_data": dict(row_data), 
+                                        "original_category_name": row_data.get("Categorie", "N/A"), 
+                                        "original_shopping_list_item_idx": original_sl_item_idx, 
+                                        "original_desired_quantities": original_desired_quantities_for_swap 
+                                    }
+                                    if f"swap_search_term_{sup_name}_{detail_idx}" in st.session_state: 
+                                        del st.session_state[f"swap_search_term_{sup_name}_{detail_idx}"]
                                     st.rerun()
                             st.markdown("---") 
-                        ontbrekende_voor_sup = item_status_data.get(sup_name, {}).get("ontbrekende_categorien", set())
-                        if ontbrekende_voor_sup: st.caption(f"Ontbrekende categorieën voor {sup_name}: {', '.join(sorted(list(ontbrekende_voor_sup)))}")
-                        go_shopping_key = f"go_shopping_{sup_name.replace(' ', '_')}_{summary_idx}"
-                        if st.button(f"🛍️ Boodschappen doen met lijst van {sup_name}", key=go_shopping_key):
-                            st.session_state.shopping_mode_active = True; st.session_state.active_shopping_supermarket_name = sup_name
-                            st.session_state.active_shopping_list_details = [dict(item) for item in sorted_rows_for_sup]; st.rerun()
                     if st.session_state.active_swap and st.session_state.active_swap["sup_name"] == sup_name:
                         active_swap_info = st.session_state.active_swap; detail_item_idx_being_swapped = active_swap_info["detail_item_index"]
                         original_item_display_name_swap = active_swap_info["original_item_data"]["Naam"]; original_item_chosen_option_swap = active_swap_info["original_item_data"]["Gekozen voor optie"]
@@ -785,6 +845,11 @@ def display_main_app_view():
                                         st.session_state.active_swap = None; st.rerun()
                         if st.button("Annuleer Wisselen", key=f"cancel_swap_{sup_name}_{active_swap_info['detail_item_index'] if st.session_state.active_swap else 'cancel_placeholder'}"):
                             st.session_state.active_swap = None; st.rerun()
+
+# Verwijder de oude, mogelijk conflicterende sort_key_missing_first definitie hieronder als die er nog stond
+# def sort_key_missing_first(row):
+# print("Hallo vanuit de functie")
+# ... (definitie zoals je die hebt)
 
 # --- Hoofd App Flow ---
 if st.session_state.get('shopping_mode_active', False):
