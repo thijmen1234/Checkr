@@ -1,0 +1,22 @@
+[
+    {
+        "date": "2025-06-06 21:17:13",
+        "supermarket_chosen": "Hoogvliet",
+        "cost_chosen_supermarket": "2.69",
+        "highest_complete_list_cost": "6.79",
+        "amount_saved": "4.10",
+        "shopping_list_items": [
+            "Braadworst (gecombineerd)"
+        ]
+    },
+    {
+        "date": "2025-06-06 21:21:32",
+        "supermarket_chosen": "Dirk",
+        "cost_chosen_supermarket": "3.75",
+        "highest_complete_list_cost": "6.79",
+        "amount_saved": "3.04",
+        "shopping_list_items": [
+            "Braadworst (gecombineerd)"
+        ]
+    }
+]

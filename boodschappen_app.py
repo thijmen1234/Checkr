@@ -6,6 +6,7 @@ from collections import defaultdict
 import math
 import os
 import json
+from datetime import datetime
 
 # --- Streamlit UI Configuratie ---
 try:
@@ -55,7 +56,7 @@ def apply_custom_styling():
         }
         div[data-baseweb="alert"][data-kind="info"] {
             background-color: #2963E0 !important; color: white !important;
-            border-radius: 8px !important; border: none !important; padding: 1rem !important;
+            border-radius: 8pt !important; border: none !important; padding: 1rem !important;
         }
         div[data-baseweb="alert"][data-kind="info"] div[data-testid="stMarkdownContainer"] p,
         div[data-baseweb="alert"][data-kind="info"] div[data-testid="stMarkdownContainer"] li {
@@ -63,6 +64,90 @@ def apply_custom_styling():
         }
         div[data-baseweb="alert"][data-kind="info"] svg {
             fill: white !important;
+        }
+
+        /* Centering for the entire main content area */
+        .main .block-container {
+            max-width: 700px; /* Adjust as needed */
+            padding-left: 1rem;
+            padding-right: 1rem;
+            margin: auto; /* This centers the block-container */
+        }
+        
+        /* Centering for specific elements if not covered by parent */
+        [data-testid="stImage"] {
+            display: block; /* Images are inline by default */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* Centering for headers and general text */
+        h1, h2, h3, h4, h5, h6, p, .stMarkdown, .stText, .stAlert {
+            text-align: center;
+        }
+
+        /* Overrides for Streamlit specific elements that might not center by default */
+        div[data-testid="stVerticalBlock"] {
+            align-items: center;
+        }
+
+        /* Specific styling for the centered metric */
+        .st-emotion-cache-1r6dm7w { /* This is a common container for st.metric, but can vary */
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Centers horizontally */
+            text-align: center;
+        }
+        [data-testid="stMetricValue"] {
+            font-size: 2.5em !important; /* Groter bedrag */
+            font-weight: 600 !important;
+            color: #2963E0 !important; /* Kleur aanpassen indien gewenst */
+            text-align: center; /* Zorg ervoor dat de waarde zelf ook gecentreerd is */
+        }
+        [data-testid="stMetricLabel"] {
+            font-size: 0.8em !important; /* Kleinere tekst "al bespaard" */
+            color: #777777 !important;
+            margin-top: -10px; /* Zorgt dat het dichter op het bedrag staat */
+            text-align: center; /* Zorg ervoor dat het label zelf ook gecentreerd is */
+        }
+
+        /* Specific centering for buttons */
+        div.stButton {
+            display: flex;
+            justify-content: center;
+        }
+        /* Specific centering for inputs/selects */
+        div[data-testid="stTextInput"] div.st-emotion-cache-1c7y2kl,
+        div[data-testid="stMultiSelect"] div.st-emotion-cache-1c7y2kl,
+        div[data-testid="stNumberInput"] div.st-emotion-cache-1c7y2kl {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        /* Make multiselect dropdown wider if it gets too narrow by default due to centering */
+        .stMultiSelect > div[data-baseweb="select"] > div {
+            width: 100% !important; /* Ensures it fills available width within its centered container */
+        }
+        
+        /* Override for dataframes which look bad when centered */
+        div[data-testid="stDataFrame"] {
+            display: block; /* Reset to default block display */
+            margin-left: auto;
+            margin-right: auto;
+            text-align: left; /* Reset text align for content inside dataframe */
+        }
+        div[data-testid="stDataFrame"] table {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* For column-based layouts, ensure content within columns can be centered too */
+        .st-emotion-cache-nahz7x { /* st.columns container */
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-start;
         }
     </style>
     """
@@ -140,6 +225,21 @@ if 'shopping_mode_active' not in st.session_state: st.session_state.shopping_mod
 if 'active_shopping_list_details' not in st.session_state: st.session_state.active_shopping_list_details = None
 if 'active_shopping_supermarket_name' not in st.session_state: st.session_state.active_shopping_supermarket_name = None
 if 'skipped_products_log' not in st.session_state: st.session_state.skipped_products_log = []
+if 'savings_log' not in st.session_state: st.session_state.savings_log = []
+
+# Laad de besparingslog bij het opstarten van de app.
+def load_savings_log(filename="savings_log.json"):
+    if os.path.exists(filename):
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                st.session_state.savings_log = json.load(f)
+        except Exception as e:
+            st.error(f"Fout bij laden van besparingslog: {e}")
+            st.session_state.savings_log = []
+    else:
+        st.session_state.savings_log = []
+
+load_savings_log() # Belangrijk: deze aanroep is nu vroeg in het script
 
 
 # --- Functie Definities ---
@@ -308,6 +408,12 @@ def load_shopping_list(filename="shopping_list.json"):
         except Exception as e: st.error(f"Fout bij laden: {e}")
     else: st.warning(f"Bestand '{filename}' niet gevonden.")
 
+def save_savings_log(filename="savings_log.json"):
+    try:
+        with open(filename, 'w', encoding='utf-8') as f: json.dump(st.session_state.savings_log, f, ensure_ascii=False, indent=4)
+    except IOError as e: st.error(f"Fout bij opslaan van besparingslog: {e}")
+
+
 def calculate_new_item_cost(new_product_data, original_desired_quantities, original_category_name_for_swap, shopping_list_item_idx_for_swap):
     min_cost = float('inf'); best_option_details = None
     if not original_desired_quantities: return None
@@ -340,6 +446,10 @@ def run_comparison_and_store_results(shopping_list_items):
     item_status_per_super = defaultdict(lambda: {"gevonden_categorien": set(), "ontbrekende_categorien": set()})
     if not shopping_list_items: st.session_state.comparison_results = None; return
     all_configured_supermarket_names = set(SUPERMARKETS.values())
+
+    # Nieuwe variabele om de hoogste prijs van een complete lijst bij te houden
+    highest_complete_list_total = 0.0
+
     for item_idx, item_in_shopping_list in enumerate(shopping_list_items):
         category_name = item_in_shopping_list["Categorie"]; products_for_this_category_item = item_in_shopping_list["Producten"]
         for sup_name in all_configured_supermarket_names:
@@ -375,43 +485,24 @@ def run_comparison_and_store_results(shopping_list_items):
                 totaal_per_supermarkt[sup_name] += min_cost_for_item_at_sup; details_per_super[sup_name].append(best_option_details_for_item_at_sup); item_status_per_super[sup_name]["gevonden_categorien"].add(category_name)
             else: item_status_per_super[sup_name]["ontbrekende_categorien"].add(category_name)
     
-    for sup_name in all_configured_supermarket_names:
-        if not (item_status_per_super[sup_name]["gevonden_categorien"] or item_status_per_super[sup_name]["ontbrekende_categorien"]):
-            if len(shopping_list_items) > 0: 
-                for item_idx_miss, sl_item_miss in enumerate(shopping_list_items): item_status_per_super[sup_name]["ontbrekende_categorien"].add(sl_item_miss["Categorie"])
-            else: continue
-        for item_idx_fill, shopping_list_item_entry_fill in enumerate(shopping_list_items):
-            cat_naam_fill = shopping_list_item_entry_fill["Categorie"]
-            is_gevonden = any(d["Categorie"] == cat_naam_fill and not "(ontbreekt)" in d["Naam"] for d in details_per_super.get(sup_name, []))
-            is_al_als_ontbrekend = any(d["Categorie"] == cat_naam_fill and "(ontbreekt)" in d["Naam"] for d in details_per_super.get(sup_name, []))
-            if not is_gevonden and not is_al_als_ontbrekend: 
-                dq_for_missing = shopping_list_item_entry_fill.get("DesiredQuantities", [])
-                gekozen_optie_str_missing_list = []
-                for dq_m in dq_for_missing:
-                    is_stuks_m = dq_m['Eenheid'].lower() == "stuks"
-                    hoeveelheid_main_val_m = dq_m['Hoeveelheid']
-                    if is_stuks_m:
-                        hoeveelheid_display_m_str = str(int(hoeveelheid_main_val_m)) if hoeveelheid_main_val_m == int(hoeveelheid_main_val_m) else str(hoeveelheid_main_val_m)
-                    else:
-                        hoeveelheid_display_m_str = f"{float(hoeveelheid_main_val_m):.2f}".rstrip('0').rstrip('.') if '.' in f"{float(hoeveelheid_main_val_m):.2f}" else f"{float(hoeveelheid_main_val_m):.0f}"
-                    s_m = f"{hoeveelheid_display_m_str} {dq_m['Eenheid']}"
-                    if dq_m.get("TolerantiePercentage", 0) > 0 and dq_m.get("TolerantieWaarde", 0) > 0: s_m += f" (±{int(dq_m['TolerantieWaarde'])} {dq_m['TolerantieEenheid']})"
-                    gekozen_optie_str_missing_list.append(s_m)
-                gekozen_optie_str_missing = ", ".join(gekozen_optie_str_missing_list) if gekozen_optie_str_missing_list else "N.v.t."
-                details_per_super[sup_name].append({"shopping_list_item_idx":item_idx_fill, "Categorie":cat_naam_fill, "Naam":f"{cat_naam_fill} (ontbreekt)", "Gekozen voor optie": gekozen_optie_str_missing, "Aantal Pakken":"-", "Verpakking Grootte":"-", "Prijs Per Pakket":"-", "Kosten Totaal":"N.v.t.", "is_swapped":False, "original_product_data_if_swapped":None, "raw_product_data":None, "_original_desired_quantities": dq_for_missing})
-                item_status_per_super[sup_name]["ontbrekende_categorien"].add(cat_naam_fill)
-    
     summary_entries_for_sorting = []
     for sup_name in all_configured_supermarket_names:
         num_found = len(item_status_per_super[sup_name]["gevonden_categorien"]); num_missing = len(shopping_list_items) - num_found
-        if not shopping_list_items and not (num_found > 0 or num_missing > 0): continue
-        if len(shopping_list_items) > 0 and not (num_found > 0 or item_status_per_super[sup_name]["ontbrekende_categorien"]): continue
+        
         raw_total = totaal_per_supermarkt.get(sup_name, 0.0) 
+
+        # Als de lijst compleet is, check of dit de hoogste totale prijs is
+        if num_missing == 0 and len(shopping_list_items) > 0:
+            if raw_total > highest_complete_list_total:
+                highest_complete_list_total = raw_total
+
         status_text = "Compleet" if num_missing == 0 and len(shopping_list_items) > 0 else (f"{num_missing} item(s) ontbreken" if len(shopping_list_items) > 0 else "N.v.t. (lijst leeg)")
         price_str = f"€{raw_total:.2f}"
         if num_found == 0 and len(shopping_list_items) > 0 : price_str = "N.v.t." 
         elif num_missing > 0 and num_found > 0 : price_str += "*" 
-        summary_entries_for_sorting.append({"Supermarkt":sup_name, "Totaalprijs_str":price_str, "Status_str":status_text, "_sort_missing_count":num_missing, "_sort_raw_total":raw_total if num_found > 0 else float('inf')})
+        
+        summary_entries_for_sorting.append({"Supermarkt":sup_name, "Totaalprijs_str":price_str, "Status_str":status_text, "_sort_missing_count":num_missing, "_sort_raw_total":raw_total if num_found > 0 else float('inf'), "raw_total_price": raw_total, "is_complete": (num_missing == 0 and len(shopping_list_items) > 0)})
+    
     summary_entries_for_sorting.sort(key=lambda x: (x["_sort_missing_count"], x["_sort_raw_total"]))
     
     # Maak een nieuwe dictionary voor de gesorteerde details
@@ -425,10 +516,9 @@ def run_comparison_and_store_results(shopping_list_items):
         "summary": summary_entries_for_sorting,
         "details": sorted_details_data, # HIER GEBRUIK JE DE GESORTEERDE DATA
         "item_status": defaultdict(lambda: {"gevonden_categorien":set(), "ontbrekende_categorien":set()}, {k: {"gevonden_categorien":set(v["gevonden_categorien"]), "ontbrekende_categorien":set(v["ontbrekende_categorien"])} for k,v in item_status_per_super.items()}),
-        "totals": defaultdict(float, totaal_per_supermarkt)
+        "totals": defaultdict(float, totaal_per_supermarkt),
+        "highest_complete_list_total": highest_complete_list_total
     }
-    # De volgende regel was dubbel en verwees naar de ongesorteerde details_per_super, verwijderd:
-    # st.session_state.comparison_results = {"summary":summary_entries_for_sorting, "details":defaultdict(list, {k: list(v) for k, v in details_per_super.items()}), "item_status":defaultdict(lambda: {"gevonden_categorien":set(), "ontbrekende_categorien":set()}, {k: {"gevonden_categorien":set(v["gevonden_categorien"]), "ontbrekende_categorien":set(v["ontbrekende_categorien"])} for k,v in item_status_per_super.items()}), "totals":defaultdict(float, totaal_per_supermarkt)}
 
 
 # --- Functie: Weergave Boodschappen Modus ---
@@ -463,6 +553,7 @@ def display_shopping_mode_view():
     st.markdown("---")
     if st.button("⬅️ Terug naar Overzicht / Klaar met Boodschappen", key="exit_shopping_mode"):
         st.session_state.shopping_mode_active = False; st.session_state.active_shopping_list_details = None; st.session_state.active_shopping_supermarket_name = None
+        # Reset de afgevinkte items bij het verlaten van de boodschappenmodus
         keys_to_delete = [key for key in st.session_state.keys() if key.startswith("bought_")]; 
         for key in keys_to_delete: del st.session_state[key]
         st.rerun()
@@ -476,10 +567,22 @@ def display_main_app_view():
     if st.sidebar.button("Jouw Mandje Opslaan", key="opslaan_checkr_sidebar_knop"): save_shopping_list()
     if st.sidebar.button("Jouw Mandje Laden", key="laden_checkr_sidebar_knop"): load_shopping_list()
     st.sidebar.markdown("---") 
-    col_spacer1_main, col_logo_main_page, col_spacer2_main = st.columns([0.5, 2, 0.5]) 
-    with col_logo_main_page:
-        try: st.image("Checkr Logo.png", width=300) 
-        except Exception as e: st.error(f"Kon logo niet laden op hoofdpagina: {e}.")
+
+    # Gebruik st.columns voor centrering van het logo en de besparing
+    # We creëren een kolom voor het logo, een lege kolom aan elke kant om het te centreren.
+    # En een aparte kolom voor de besparing, die we ook via CSS centreren.
+    col1, col_logo, col2 = st.columns([1, 2, 1]) # Breedteverhouding aanpassen indien nodig
+    with col_logo:
+        st.image("Checkr Logo.png", width=300) # Logo is al gecentreerd met CSS
+
+    # Direct onder het logo, gecentreerd
+    total_saved_amount = sum(float(entry["amount_saved"]) for entry in st.session_state.savings_log)
+    
+    st.markdown(
+        f"<div style='text-align: center; margin-bottom: 20px;'><h1>€{total_saved_amount:.2f}</h1><p style='font-size: 0.8em; margin-top: -10px;'>al bespaard</p></div>", 
+        unsafe_allow_html=True
+    )
+    
     st.title("Welkom bij CheckR!") 
     st.header("Zoek producten en voeg toe aan je lijstje")
     search_term = st.text_input("Typ een zoekterm (bijv. 'braadworst', 'melk', 'thee'):", key="search_input")
@@ -747,6 +850,8 @@ def display_main_app_view():
     if 'comparison_results' in st.session_state and st.session_state.comparison_results is not None:
         results = st.session_state.comparison_results; summary_entries = results.get("summary", []) 
         details_data = results.get("details", defaultdict(list)); item_status_data = results.get("item_status", defaultdict(lambda: {"gevonden_categorien": set(), "ontbrekende_categorien": set()}))
+        highest_complete_list_total = results.get("highest_complete_list_total", 0.0)
+
         st.subheader("💶 Overzicht Totaalprijzen per Supermarkt")
         if summary_entries:
             df_summary_data = [{"Supermarkt": entry["Supermarkt"], "Totaalprijs": entry["Totaalprijs_str"], "Status": entry["Status_str"]} for entry in summary_entries]
@@ -758,10 +863,45 @@ def display_main_app_view():
         else: 
             for summary_idx, entry in enumerate(summary_entries): 
                 sup_name = entry["Supermarkt"]
+                current_sup_total = entry["raw_total_price"]
+                is_current_sup_complete = entry["is_complete"]
+                
                 expander_label = f"{sup_name} (Totaal: {entry['Totaalprijs_str']}) - Klik om producten te zien/wisselen"
                 
                 with st.expander(expander_label, expanded=False): 
-                    # Haal de reeds gesorteerde lijst op
+                    # Knop om de boodschappenmodus te starten
+                    if st.button(f"Start Boodschappen Modus voor {sup_name}", key=f"start_shopping_mode_{sup_name}"):
+                        st.session_state.shopping_mode_active = True
+                        st.session_state.active_shopping_supermarket_name = sup_name
+                        st.session_state.active_shopping_list_details = details_data.get(sup_name, [])
+
+                        # Bereken en sla de besparing op
+                        if highest_complete_list_total > 0 and is_current_sup_complete:
+                            
+                            if highest_complete_list_total > current_sup_total:
+                                saved_amount = highest_complete_list_total - current_sup_total
+                                savings_entry = {
+                                    "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    "supermarket_chosen": sup_name,
+                                    "cost_chosen_supermarket": f"{current_sup_total:.2f}",
+                                    "highest_complete_list_cost": f"{highest_complete_list_total:.2f}",
+                                    "amount_saved": f"{saved_amount:.2f}",
+                                    "shopping_list_items": [item["Categorie"] for item in st.session_state.shopping_list]
+                                }
+                                st.session_state.savings_log.append(savings_entry)
+                                save_savings_log() # Sla de bijgewerkte log op
+                                st.success(f"Gefeliciteerd! Je hebt €{saved_amount:.2f} bespaard door bij {sup_name} te winkelen t.o.v. de duurste complete lijst.")
+                            else:
+                                st.info("Geen besparing opgeslagen, omdat de gekozen supermarkt niet goedkoper was dan de 'duurste complete lijst', of er was geen duurdere complete lijst.")
+                        elif not is_current_sup_complete and len(st.session_state.shopping_list) > 0:
+                            st.warning(f"Besparing niet berekend: De boodschappenlijst voor {sup_name} is niet compleet.")
+                        else:
+                             st.info("Geen besparing berekend, omdat er geen complete lijsten waren om mee te vergelijken.")
+
+
+                        st.rerun()
+
+                    st.markdown("---")
                     rows_to_display = details_data.get(sup_name, []) # GEWIJZIGD: geen extra sortering hier
                     
                     if rows_to_display:
@@ -845,11 +985,10 @@ def display_main_app_view():
                                         st.session_state.active_swap = None; st.rerun()
                         if st.button("Annuleer Wisselen", key=f"cancel_swap_{sup_name}_{active_swap_info['detail_item_index'] if st.session_state.active_swap else 'cancel_placeholder'}"):
                             st.session_state.active_swap = None; st.rerun()
+    
+    # De besparingsweergave is nu naar de top verplaatst en vereenvoudigd.
+    # Als je de 'Bekijk Besparingsgeschiedenis' knop weer wilt, moet je die hier weer toevoegen.
 
-# Verwijder de oude, mogelijk conflicterende sort_key_missing_first definitie hieronder als die er nog stond
-# def sort_key_missing_first(row):
-# print("Hallo vanuit de functie")
-# ... (definitie zoals je die hebt)
 
 # --- Hoofd App Flow ---
 if st.session_state.get('shopping_mode_active', False):
