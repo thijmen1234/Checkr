@@ -1,0 +1,561 @@
+[
+    {
+        "Categorie": "Braadworst (gecombineerd)",
+        "DesiredQuantities": [
+            {
+                "Hoeveelheid": 300.0,
+                "Eenheid": "gram",
+                "TolerantiePercentage": 0,
+                "TolerantieWaarde": 0,
+                "TolerantieEenheid": null
+            },
+            {
+                "Hoeveelheid": 3,
+                "Eenheid": "stuks",
+                "TolerantiePercentage": 0,
+                "TolerantieWaarde": 0,
+                "TolerantieEenheid": null
+            }
+        ],
+        "Producten": [
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Biologisch Varkensbraadworst",
+                "Grootte_Origineel": "2 stuks",
+                "Hoeveelheid": 2.0,
+                "Eenheid": "stuks",
+                "Prijs": 3.69
+            },
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Varkensbraadworst",
+                "Grootte_Origineel": "9 stuks",
+                "Hoeveelheid": 9.0,
+                "Eenheid": "stuks",
+                "Prijs": 7.49
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "DekaVers Varkensbraadworst 4 stuks",
+                "Grootte_Origineel": "360 g",
+                "Hoeveelheid": 360.0,
+                "Eenheid": "gram",
+                "Prijs": 3.24
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "DekaVers Varkensbraadworst 6 stuks",
+                "Grootte_Origineel": "540 g",
+                "Hoeveelheid": 540.0,
+                "Eenheid": "gram",
+                "Prijs": 4.69
+            },
+            {
+                "Supermarkt": "Dirk",
+                "Naam": "Vleeschmeesters Varkensbraadworst 5 st.",
+                "Grootte_Origineel": "450 g",
+                "Hoeveelheid": 450.0,
+                "Eenheid": "gram",
+                "Prijs": 3.75
+            },
+            {
+                "Supermarkt": "Dirk",
+                "Naam": "Vleeschmeesters Varkensbraadworst mager 2 st.",
+                "Grootte_Origineel": "180 g",
+                "Hoeveelheid": 180.0,
+                "Eenheid": "gram",
+                "Prijs": 2.15
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Hoogvliet Varkens braadworsten",
+                "Grootte_Origineel": "320 gram",
+                "Hoeveelheid": 320.0,
+                "Eenheid": "gram",
+                "Prijs": 2.69
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Hoogvliet Varkens braadworsten",
+                "Grootte_Origineel": "240 gram",
+                "Hoeveelheid": 240.0,
+                "Eenheid": "gram",
+                "Prijs": 2.19
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Hoogvliet Varkens braadworsten",
+                "Grootte_Origineel": "800 gram",
+                "Hoeveelheid": 800.0,
+                "Eenheid": "gram",
+                "Prijs": 6.21
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Grove Braadworst Kruidnagel Varken 400g",
+                "Grootte_Origineel": "400 g",
+                "Hoeveelheid": 400.0,
+                "Eenheid": "gram",
+                "Prijs": 3.79
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Varken Braadworst Fijn 390 g",
+                "Grootte_Origineel": "390 g",
+                "Hoeveelheid": 390.0,
+                "Eenheid": "gram",
+                "Prijs": 3.09
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Varkens Braadworst 2 Stuks",
+                "Grootte_Origineel": "660 g",
+                "Hoeveelheid": 660.0,
+                "Eenheid": "gram",
+                "Prijs": 5.0
+            },
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Braadworst 2 stuks",
+                "Grootte_Origineel": "2 stuks",
+                "Hoeveelheid": 2.0,
+                "Eenheid": "stuks",
+                "Prijs": 2.19
+            },
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Braadworst 4 stuks",
+                "Grootte_Origineel": "4 stuks",
+                "Hoeveelheid": 4.0,
+                "Eenheid": "stuks",
+                "Prijs": 3.49
+            },
+            {
+                "Supermarkt": "Aldi",
+                "Naam": "Braadworst",
+                "Grootte_Origineel": "1  kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 6.79
+            },
+            {
+                "Supermarkt": "Plus",
+                "Naam": "PLUS Braadworst 3st",
+                "Grootte_Origineel": "Per 450 g",
+                "Hoeveelheid": 450.0,
+                "Eenheid": "gram",
+                "Prijs": 3.36
+            }
+        ]
+    },
+    {
+        "Categorie": "Vastkoken",
+        "DesiredQuantities": [
+            {
+                "Hoeveelheid": 450.0,
+                "Eenheid": "gram",
+                "TolerantiePercentage": 13,
+                "TolerantieWaarde": 58,
+                "TolerantieEenheid": "gram"
+            }
+        ],
+        "Producten": [
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Aardappelen vastkokend",
+                "Grootte_Origineel": "5 kg",
+                "Hoeveelheid": 5000.0,
+                "Eenheid": "gram",
+                "Prijs": 5.49
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "Aardappelen vastkokend groen",
+                "Grootte_Origineel": "3 kg",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.95
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "Aardappelen vrij vastkokend",
+                "Grootte_Origineel": "3 kg",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.95
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "PLUS Kookaardappelen vastkokend gvp",
+                "Grootte_Origineel": "700 g",
+                "Hoeveelheid": 700.0,
+                "Eenheid": "gram",
+                "Prijs": 1.59
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "Bio+ Biologische aardappelen vastkokend",
+                "Grootte_Origineel": "2 kg",
+                "Hoeveelheid": 2000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.49
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "Aardappelen vastkokend",
+                "Grootte_Origineel": "3 kg",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.29
+            },
+            {
+                "Supermarkt": "Dirk",
+                "Naam": "1 de Beste Aardappelen vastkokend",
+                "Grootte_Origineel": "3 kg",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 3.89
+            },
+            {
+                "Supermarkt": "Dirk",
+                "Naam": "1 de Beste Gekookte aardappelen vastkokend",
+                "Grootte_Origineel": "500 g",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 1.09
+            },
+            {
+                "Supermarkt": "Dirk",
+                "Naam": "Bio+ Biologische aardappelen vastkokend",
+                "Grootte_Origineel": "1 kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 1.99
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Aardappel vastkokend",
+                "Grootte_Origineel": "1 kilo",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 1.65
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Aardappelen vastkokend",
+                "Grootte_Origineel": "3 kilo",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.95
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Aardappelen vastkokend",
+                "Grootte_Origineel": "500 gram",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 1.09
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Aardappelen vastkokend",
+                "Grootte_Origineel": "700 gram",
+                "Hoeveelheid": 700.0,
+                "Eenheid": "gram",
+                "Prijs": 1.55
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Aardappelen Vastkokend 1 kg",
+                "Grootte_Origineel": "1 kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 1.65
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Aardappelen Vastkokend 3 kg",
+                "Grootte_Origineel": "3 kg",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.39
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Aardappelen Vastkokend 800 g",
+                "Grootte_Origineel": "800 GRAM",
+                "Hoeveelheid": 800.0,
+                "Eenheid": "gram",
+                "Prijs": 1.89
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Biologisch Aardappelen Vastkokend 1KG",
+                "Grootte_Origineel": "1 kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 2.49
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Biologisch Aardappelen Vastkokend 2,5KG",
+                "Grootte_Origineel": "2.5 kg",
+                "Hoeveelheid": 2500.0,
+                "Eenheid": "gram",
+                "Prijs": 4.79
+            },
+            {
+                "Supermarkt": "Plus",
+                "Naam": "PLUS Aardappelen vastkokend (voorgekookt)",
+                "Grootte_Origineel": "Per 450 g",
+                "Hoeveelheid": 450.0,
+                "Eenheid": "gram",
+                "Prijs": 1.09
+            },
+            {
+                "Supermarkt": "Plus",
+                "Naam": "PLUS Aardappelen vastkokend (voorgekookt)",
+                "Grootte_Origineel": "Per 800 g",
+                "Hoeveelheid": 800.0,
+                "Eenheid": "gram",
+                "Prijs": 1.79
+            },
+            {
+                "Supermarkt": "Vomar",
+                "Naam": "Aardappelen vastkokend 1kg",
+                "Grootte_Origineel": "1KG",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 1.59
+            },
+            {
+                "Supermarkt": "Vomar",
+                "Naam": "Aardappelen vastkokend 3kg",
+                "Grootte_Origineel": "3KG",
+                "Hoeveelheid": 3000.0,
+                "Eenheid": "gram",
+                "Prijs": 3.99
+            }
+        ]
+    },
+    {
+        "Categorie": "Sperziebonen",
+        "DesiredQuantities": [
+            {
+                "Hoeveelheid": 350.0,
+                "Eenheid": "gram",
+                "TolerantiePercentage": 0,
+                "TolerantieWaarde": 0,
+                "TolerantieEenheid": null
+            }
+        ],
+        "Producten": [
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Sperziebonen",
+                "Grootte_Origineel": "los per 500 g",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 2.04
+            },
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Sperziebonen",
+                "Grootte_Origineel": "400 g",
+                "Hoeveelheid": 400.0,
+                "Eenheid": "gram",
+                "Prijs": 2.29
+            },
+            {
+                "Supermarkt": "Albert Heijn",
+                "Naam": "AH Sperziebonen",
+                "Grootte_Origineel": "500 g",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 2.49
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "PLUS Sperziebonen",
+                "Grootte_Origineel": "800 g",
+                "Hoeveelheid": 800.0,
+                "Eenheid": "gram",
+                "Prijs": 1.59
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "Sperziebonen",
+                "Grootte_Origineel": "680 g",
+                "Hoeveelheid": 680.0,
+                "Eenheid": "gram",
+                "Prijs": 1.19
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "Sperziebonen",
+                "Grootte_Origineel": "1 kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 4.7
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "Sperziebonen",
+                "Grootte_Origineel": "1 kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 3.98
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "Sperziebonen",
+                "Grootte_Origineel": "200 g",
+                "Hoeveelheid": 200.0,
+                "Eenheid": "gram",
+                "Prijs": 1.95
+            },
+            {
+                "Supermarkt": "Dirk",
+                "Naam": "Sperziebonen",
+                "Grootte_Origineel": "1 kg",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "gram",
+                "Prijs": 2.98
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Hoogvliet Sperziebonen",
+                "Grootte_Origineel": "500 gram",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 1.69
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Hoogvliet Sperziebonen",
+                "Grootte_Origineel": "200 gram",
+                "Hoeveelheid": 200.0,
+                "Eenheid": "gram",
+                "Prijs": 1.99
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Jumbo Sperziebonen 500 g",
+                "Grootte_Origineel": "(uit naam: Jumbo Sperziebonen 500 g)",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 2.49
+            },
+            {
+                "Supermarkt": "Plus",
+                "Naam": "PLUS Sperziebonen",
+                "Grootte_Origineel": "Per 500 gram",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "gram",
+                "Prijs": 2.05
+            }
+        ]
+    },
+    {
+        "Categorie": "Vanille vla (gecombineerd)",
+        "DesiredQuantities": [
+            {
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "TolerantiePercentage": 0,
+                "TolerantieWaarde": 0,
+                "TolerantieEenheid": null
+            }
+        ],
+        "Producten": [
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Vanille Vla 1L",
+                "Grootte_Origineel": "(uit naam: Vanille Vla 1L)",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 1.06
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "Melkan Vanille vla",
+                "Grootte_Origineel": "1 l",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 1.59
+            },
+            {
+                "Supermarkt": "DEKAMarkt",
+                "Naam": "Melkan Vanille vla",
+                "Grootte_Origineel": "1 liter",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 1.19
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Melkan Vanille vla",
+                "Grootte_Origineel": "1 liter",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 1.53
+            },
+            {
+                "Supermarkt": "Plus",
+                "Naam": "Melkan Vanille vla",
+                "Grootte_Origineel": "Per 1000 ml",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 1.49
+            },
+            {
+                "Supermarkt": "COOP",
+                "Naam": "Campina Vanille vla",
+                "Grootte_Origineel": "500 ml",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "ml",
+                "Prijs": 1.59
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Campina vanille vla",
+                "Grootte_Origineel": "1 liter",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 1.95
+            },
+            {
+                "Supermarkt": "Hoogvliet",
+                "Naam": "Campina Vanille vla",
+                "Grootte_Origineel": "500 milliliter",
+                "Hoeveelheid": 500.0,
+                "Eenheid": "ml",
+                "Prijs": 1.52
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "Campina vanille vla 6 x 1 L",
+                "Grootte_Origineel": "(uit naam: Campina vanille vla 6 x 1 L)",
+                "Hoeveelheid": 6.0,
+                "Eenheid": "stuks",
+                "Prijs": 11.94
+            },
+            {
+                "Supermarkt": "Jumbo",
+                "Naam": "den Eelder Boeren Vanille Vla 1 L",
+                "Grootte_Origineel": "1 LITER",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 2.35
+            },
+            {
+                "Supermarkt": "Plus",
+                "Naam": "Den Eelder Boeren vanille vla",
+                "Grootte_Origineel": "Per 1000 ml",
+                "Hoeveelheid": 1000.0,
+                "Eenheid": "ml",
+                "Prijs": 2.35
+            }
+        ]
+    }
+]

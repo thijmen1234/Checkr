@@ -1,22 +1,35 @@
 [
     {
-        "date": "2025-06-06 21:17:13",
-        "supermarket_chosen": "Hoogvliet",
-        "cost_chosen_supermarket": "2.69",
-        "highest_complete_list_cost": "6.79",
-        "amount_saved": "4.10",
+        "date": "2025-06-06 21:47:07",
+        "supermarket_chosen": "Dirk",
+        "cost_chosen_supermarket": "1.49",
+        "average_complete_list_cost": "1.63",
+        "amount_saved": "0.14",
         "shopping_list_items": [
-            "Braadworst (gecombineerd)"
+            "Conimex"
         ]
     },
     {
-        "date": "2025-06-06 21:21:32",
-        "supermarket_chosen": "Dirk",
-        "cost_chosen_supermarket": "3.75",
-        "highest_complete_list_cost": "6.79",
-        "amount_saved": "3.04",
+        "date": "2025-06-06 21:50:24",
+        "supermarket_chosen": "Plus",
+        "cost_chosen_supermarket": "3.36",
+        "average_complete_list_cost": "4.55",
+        "amount_saved": "1.19",
         "shopping_list_items": [
-            "Braadworst (gecombineerd)"
+            "Braadworst"
+        ]
+    },
+    {
+        "date": "2025-06-06 22:17:29",
+        "supermarket_chosen": "Jumbo",
+        "cost_chosen_supermarket": "8.29",
+        "average_complete_list_cost": "8.97",
+        "amount_saved": "0.68",
+        "shopping_list_items": [
+            "Braadworst (gecombineerd)",
+            "Vastkoken",
+            "Sperziebonen",
+            "Vanille vla (gecombineerd)"
         ]
     }
 ]
