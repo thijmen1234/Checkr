@@ -92,7 +92,6 @@ def apply_custom_styling():
         }
 
         /* Specific styling for the centered metric */
-        /* Removed .st-emotion-cache-1r6dm7w as it's too generic and can cause issues */
         [data-testid="stMetricValue"] {
             font-size: 2.5em !important; /* Groter bedrag */
             font-weight: 600 !important;
@@ -151,31 +150,32 @@ def apply_custom_styling():
             justify-content: center; /* Centers the bar horizontally */
             width: 100%; /* Take full width of parent */
             margin-top: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 5px; /* Less margin before the percentages */
         }
         .savings-bar-container {
-            width: 80%; /* Adjusted width to be slightly narrower than full container */
-            max-width: 400px; /* Max width for the bar itself for better aesthetics */
+            width: 95% !important; /* Nog breder */
+            max-width: 800px !important; /* Aanzienlijk grotere max-breedte (was 600px) */
             background-color: #e0e0e0; /* Gray background for the total potential cost */
             border-radius: 5px;
             overflow: hidden; /* Ensures the blue bar stays within the rounded corners */
-            height: 25px; /* Height of the bar, slightly larger for text */
+            height: 35px; /* Hogere balk */
             display: flex; /* Use flexbox for the inner parts */
-            position: relative; /* Needed for absolute positioning of text if desired */
         }
 
+        /* Styling for the text *inside* the bar segments */
         .savings-bar-paid, .savings-bar-saved {
             height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75em; /* Slightly larger font for visibility */
+            font-size: 0.9em; /* Grotere font-size in de balk */
             font-weight: bold;
             box-sizing: border-box; /* Include padding/border in width */
             padding: 0 5px; /* Padding inside the bar segments */
             white-space: nowrap; /* Prevent text from wrapping */
             overflow: hidden; /* Hide overflowing text */
             text-overflow: ellipsis; /* Add ellipsis if text is too long */
+            text-align: center; /* Ensure text inside is centered */
         }
 
         .savings-bar-paid {
@@ -187,17 +187,59 @@ def apply_custom_styling():
             background-color: #cccccc; /* Gray for the saved amount */
             color: #333333;
         }
+        
+        /* Gray background for the savings overview container - targeting Streamlit's own container */
+        /* Dit is de cruciale selector, mogelijk moet deze nog specifieker zijn voor jouw deployment */
+        /* Als het nog steeds niet werkt, moet je de HTML inspecteren met F12 in je browser. */
+        .st-emotion-cache-vk3252.e1f1d6gn0, /* Common class for st.container in some versions */
+        .css-1r6dm7w.e1f1d6gn0, /* Another common class for st.container */
+        div[data-testid="stVerticalBlock"] > div:has(.savings-bar-wrapper) { /* Targeting the direct parent of our savings bar wrapper */
+            background-color: #f0f0f0 !important; /* Forceer grijze achtergrond */
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px; 
+            text-align: center;
+            width: 100% !important; /* Forceer breedte */
+            max-width: none !important; /* Verwijder maximale breedte beperkingen */
+        }
 
-        .savings-bar-text-overlay { /* For text over the entire bar, if needed */
-            position: absolute;
-            width: 100%;
-            height: 100%;
+
+        /* Styling for horizontal number inputs and sliders for units */
+        .unit-inputs-container { /* This is a custom HTML div, not Streamlit's columns */
             display: flex;
+            flex-wrap: wrap; /* Allow wrapping to next line if space is limited */
+            justify-content: center; /* Center units horizontally */
+            gap: 20px; /* Space between each unit group */
+            margin-bottom: 20px; /* Space after all unit inputs */
+        }
+        /* Style for each unit's container (e.g., for 'gram', 'stuks') */
+        .unit-column-group { /* A div that acts as a group for one unit's quantity and slider */
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: space-around; /* Distribute space between text */
-            color: black; /* Default color for overlay text */
-            font-size: 0.8em;
-            font-weight: bold;
+            text-align: center;
+            flex: 1; /* Allows columns to stretch and shrink */
+            min-width: 150px; /* Minimum width for each unit group */
+            max-width: 200px; /* Max width to prevent too wide columns */
+        }
+        /* Specific adjustments for number input in unit columns */
+        .unit-column-group div[data-testid="stNumberInput"] {
+            width: 100% !important; /* Full width within its unit-column */
+        }
+        .unit-column-group div[data-testid="stNumberInput"] input {
+            text-align: center;
+        }
+        /* Specific adjustments for slider in unit columns */
+        .unit-column-group div[data-testid="stSlider"] {
+            width: 100% !important; /* Full width within its unit-column */
+        }
+        .unit-column-group div[data-testid="stSlider"] > label {
+            display: none; /* Hide default slider label */
+        }
+        .unit-column-group p { /* For the ± X unit text */
+            margin-top: -10px; /* Pull closer to slider */
+            font-size: 0.7em;
+            color: #777;
         }
 
     </style>
@@ -334,7 +376,7 @@ def clean_name(name, search_term=None):
             break 
     name_cleaned_after_supermarket = DIGIT_PATTERN.sub("", name_to_process)
     name_cleaned_after_supermarket = re.sub(r"[-/]", " ", name_cleaned_after_supermarket)
-    name_cleaned_after_supermarket = re.sub(r"[^\w\s]", "", name_cleaned_after_supermarket)
+    name_cleaned_after_supermarket = re.sub(r"[^\w\s]", "", name_cleaned_after_supermarket) 
     name_cleaned_after_supermarket = re.sub(r"\s+", " ", name_cleaned_after_supermarket).strip()
     final_cleaned_text = name_cleaned_after_supermarket
     if search_term:
@@ -596,8 +638,7 @@ def run_comparison_and_store_results(shopping_list_items):
                         if p["Eenheid"].lower() == unit_desired:
                             pack_size_val = p["Hoeveelheid"]
                             if pack_size_val == 0: continue
-                            prijs_product = p["Prijs"]
-                            n_packs_needed = max(1, math.ceil(qty_desired / pack_size_val))
+                            prijs_product = p["Prijs"]; n_packs_needed = max(1, math.ceil(qty_desired / pack_size_val))
                             cost_for_this_product_for_this_wish = prijs_product * n_packs_needed
 
                             if cost_for_this_product_for_this_wish < current_wish_best_product_at_sup["cost"]:
@@ -662,10 +703,9 @@ def run_comparison_and_store_results(shopping_list_items):
                     dq_for_missing = shopping_list_item_entry_fill.get("DesiredQuantities", [])
                     gekozen_optie_str_missing_list = []
                     
-                    # Correctie: zorg dat dq_m correct wordt gebruikt
-                    for dq_m in dq_for_missing: # Hier was de fout: 'dq' in plaats van 'dq_m'
+                    for dq_m in dq_for_missing: 
                         is_stuks_m = dq_m['Eenheid'].lower() == "stuks"
-                        hoeveelheid_main_val_m = dq_m['Hoeveelheid'] # <-- CORRECTIE HIER
+                        hoeveelheid_main_val_m = dq_m['Hoeveelheid'] 
                         if is_stuks_m:
                             hoeveelheid_display_m_str = str(int(hoeveelheid_main_val_m)) if hoeveelheid_main_val_m == int(hoeveelheid_main_val_m) else str(hoeveelheid_main_val_m)
                         else:
@@ -700,7 +740,7 @@ def run_comparison_and_store_results(shopping_list_items):
 
     for sup_name in all_configured_supermarket_names:
         num_found = len(item_status_per_super[sup_name]["gevonden_categorien"])
-        num_missing = len(shopping_list_items) - num_found # Dit is het echte aantal ontbrekende items
+        num_missing = len(shopping_list_items) - num_found 
         
         raw_total = totaal_per_supermarkt.get(sup_name, 0.0) 
 
@@ -806,59 +846,68 @@ def display_main_app_view():
     st.sidebar.markdown("---") 
 
     # Gebruik st.columns voor centrering van het logo
-    col1, col_logo, col2 = st.columns([1, 2, 1]) # Breedteverhouding aanpassen indien nodig
+    col1, col_logo, col2 = st.columns([1, 2, 1]) 
     with col_logo:
-        st.image("Checkr Logo.png", width=300) # Logo is al gecentreerd met CSS
-
-    # Direct onder het logo, gecentreerd
-    total_saved_amount = sum(float(entry["amount_saved"]) for entry in st.session_state.savings_log)
-    
-    # Gebruik .get() met een default waarde voor 'average_complete_list_cost' om KeyError te voorkomen
-    # voor oude entries die deze sleutel nog niet hebben.
-    total_avg_possible_cost = sum(float(entry.get("average_complete_list_cost", 0.0)) for entry in st.session_state.savings_log)
-    total_actual_paid_if_chosen = sum(float(entry.get("cost_chosen_supermarket", 0.0)) for entry in st.session_state.savings_log)
-
-    st.markdown(
-        f"<div style='text-align: center; margin-bottom: 10px;'><h1>€{total_saved_amount:.2f}</h1><p style='font-size: 0.8em; margin-top: -10px;'>al bespaard</p></div>", 
-        unsafe_allow_html=True
-    )
-    
-    # Visualisatiebalk
-    if total_avg_possible_cost > 0:
-        # Bereken percentages
-        # Deel van de balk dat "betaald" is, is de totale betaalde kosten ten opzichte van de totale gemiddelde kosten
-        paid_percentage = (total_actual_paid_if_chosen / total_avg_possible_cost) * 100
-        # Deel van de balk dat "bespaard" is, is de totale bespaarde kosten ten opzichte van de totale gemiddelde kosten
-        saved_percentage = (total_saved_amount / total_avg_possible_cost) * 100
-        
-        # Zorg ervoor dat percentages niet boven de 100% komen door afrondingsfouten
-        # en dat de som van de percentages 100% is.
-        if paid_percentage + saved_percentage > 100.01: # kleine marge voor float errors
-             if saved_percentage > 100: saved_percentage = 100 # Voorkom dat besparing > 100% is
-             paid_percentage = 100 - saved_percentage # Betaald percentage vult de rest aan
-        
-        # Tekst die in de balksegmenten wordt getoond
-        paid_text = f"€{total_actual_paid_if_chosen:.0f}" if paid_percentage > 15 else "" # Toon bedrag alleen als er genoeg ruimte is
-        saved_text = f"€{total_saved_amount:.0f}" if saved_percentage > 15 else "" # Toon bedrag alleen als er genoeg ruimte is
-
-        bar_html = f"""
-        <div class="savings-bar-wrapper">
-            <div class="savings-bar-container">
-                <div class="savings-bar-paid" style="width: {paid_percentage:.2f}%;">
-                    {paid_text}
-                </div>
-                <div class="savings-bar-saved" style="width: {saved_percentage:.2f}%;">
-                    {saved_text}
-                </div>
-            </div>
-        </div>
-        <p style='text-align: center; font-size: 0.75em; color: #555;'>Betaald: {paid_percentage:.1f}% | Bespaard: {saved_percentage:.1f}% van gemiddelde uitgave</p>
-        """
-        st.markdown(bar_html, unsafe_allow_html=True)
-    else:
-        st.info("Voeg items toe aan je lijst en vergelijk prijzen om je besparingen te visualiseren.")
+        st.image("Checkr Logo.png", width=600) # Logo 3x groter
 
     st.title("Welkom bij CheckR!") 
+    st.markdown("<p style='text-align: center; margin-bottom: 20px;'>Vergelijk prijzen van supermarkten, bespaar op je boodschappenlijstje en houd je besparingen bij. Voer je producten in en begin met besparen!</p>", unsafe_allow_html=True) 
+
+    # Besparingssectie in een grijs vlak (met st.container)
+    with st.container(border=True): # Deze container krijgt de grijze achtergrond via CSS
+        st.markdown(
+            f"<h1 style='text-align: center; margin-bottom: 10px;'>€{sum(float(entry['amount_saved']) for entry in st.session_state.savings_log):.2f}</h1>"
+            f"<p style='font-size: 0.8em; margin-top: -10px; text-align: center;'>al bespaard</p>", 
+            unsafe_allow_html=True
+        )
+        
+        total_saved_amount = sum(float(entry["amount_saved"]) for entry in st.session_state.savings_log)
+        total_avg_possible_cost = sum(float(entry.get("average_complete_list_cost", 0.0)) for entry in st.session_state.savings_log)
+        total_actual_paid_if_chosen = sum(float(entry.get("cost_chosen_supermarket", 0.0)) for entry in st.session_state.savings_log)
+
+        if total_avg_possible_cost > 0:
+            paid_percentage = (total_actual_paid_if_chosen / total_avg_possible_cost) * 100
+            saved_percentage = (total_saved_amount / total_avg_possible_cost) * 100
+            
+            if total_actual_paid_if_chosen == 0 and total_saved_amount == 0:
+                paid_percentage = 0.0
+                saved_percentage = 0.0
+            elif paid_percentage + saved_percentage > 100.01: 
+                 if saved_percentage > 100: saved_percentage = 100
+                 paid_percentage = 100 - saved_percentage 
+            
+            paid_text_content = f"€{total_actual_paid_if_chosen:.0f}" if paid_percentage > 15 else ""
+            saved_text_content = f"€{total_saved_amount:.0f}" if saved_percentage > 15 else ""
+
+            # De balk zelf is nu een enkele HTML-string, ingebed in de st.container
+            # Ik heb de styling van savings-bar-wrapper en savings-bar-container in de CSS sterker gemaakt
+            bar_html = f"""
+            <div class="savings-bar-wrapper">
+                <div class="savings-bar-container">
+                    <div class="savings-bar-paid" style="width: {paid_percentage:.2f}%;">
+                        <span>{paid_text_content}</span>
+                    </div>
+                    <div class="savings-bar-saved" style="width: {saved_percentage:.2f}%;">
+                        <span>{saved_text_content}</span>
+                    </div>
+                </div>
+            </div>
+            """
+            st.markdown(bar_html, unsafe_allow_html=True)
+            
+            # De teksten onder de balk als aparte markdown elementen
+            # Gebruik st.columns om deze twee naast elkaar te plaatsen
+            col_potential, col_saved_perc = st.columns(2)
+            with col_potential:
+                st.markdown(f"<p style='font-size: 0.75em; color: #555;'>Potentiële uitgave (gemiddeld): €{total_avg_possible_cost:.2f}</p>", unsafe_allow_html=True)
+            with col_saved_perc:
+                st.markdown(f"<p style='text-align: right; font-size: 0.75em; color: #555;'>Besparing: {saved_percentage:.1f}%</p>", unsafe_allow_html=True)
+
+        else:
+            st.info("Voeg items toe aan je lijst en vergelijk prijzen om je besparingen te visualiseren.")
+    
+    # End of st.container block (the gray background is applied to this container)
+
     st.header("Zoek producten en voeg toe aan je lijstje")
     search_term = st.text_input("Typ een zoekterm (bijv. 'braadworst', 'melk', 'thee'):", key="search_input")
 
@@ -996,8 +1045,8 @@ def display_main_app_view():
             
             selected_sub_category_display_strings = []
             if sub_category_display_strings:
-                st.subheader("Kies sub-categorieën om te combineren (of selecteer er één):")
-                selected_sub_category_display_strings = st.multiselect("Beschikbare sub-categorieën:", sub_category_display_strings, key=f"multiselect_sub_cat_{search_term}")
+                selected_sub_category_display_strings = st.multiselect("Kies één of meer categorieën", sub_category_display_strings, key=f"multiselect_sub_cat_{search_term}", help="Selecteer categorieën om te combineren.", placeholder="Kies één of meer categorieën")
+            
             if selected_sub_category_display_strings:
                 default_combined_name = search_term.capitalize()
                 if len(selected_sub_category_display_strings) == 1:
@@ -1006,8 +1055,15 @@ def display_main_app_view():
                 elif len(selected_sub_category_display_strings) > 1: default_combined_name = f"{search_term.capitalize()} (gecombineerd)"
                 if not any(c.isupper() for c in default_combined_name) and '&' not in default_combined_name:
                     default_combined_name = default_combined_name.capitalize()
-                combined_category_name = st.text_input("Geef een naam voor deze selectie (druk Enter om te bevestigen):", value=default_combined_name, key=f"combined_cat_name_input_{search_term}_{'_'.join(sorted(selected_sub_category_display_strings))}").strip()
-                if combined_category_name:
+                
+                combined_category_name_key = f"combined_cat_name_input_{search_term}_{'_'.join(sorted(selected_sub_category_display_strings))}"
+                
+                if combined_category_name_key not in st.session_state:
+                    st.session_state[combined_category_name_key] = default_combined_name
+                
+                combined_category_name = st.session_state[combined_category_name_key] 
+                
+                if combined_category_name: 
                     aggregated_products = []; product_identifiers_added = set()
                     for selected_display_str in selected_sub_category_display_strings:
                         option_data = next((opt for opt in final_radio_options_data if opt["display_text"] == selected_display_str), None)
@@ -1026,50 +1082,61 @@ def display_main_app_view():
                         with st.expander(f"Bekijk producten voor '{combined_category_name}' ({len(aggregated_products)} gevonden) - klik om details te zien", expanded=False):
                             st.dataframe([{"Supermarkt":p_agg["Supermarkt"], "Naam":p_agg["Naam"], "Grootte (Origineel)":p_agg["Grootte_Origineel"], "Prijs":f"€{p_agg['Prijs']:.2f}"} for p_agg in aggregated_products], height=300, hide_index=True, use_container_width=True)
                         st.markdown("---") 
-                        st.subheader(f"Gewenste hoeveelheid voor '{combined_category_name}'")
-                        st.info("Geef hieronder je 'of'-opties op. Bij het vergelijken wordt de goedkoopste optie per supermarkt gekozen.")
+                        
+                        st.markdown(f"**Specificeer gewenste hoeveelheden voor '{combined_category_name}'**", unsafe_allow_html=True) 
+                        
                         unique_units_combined = sorted(list(set(p_agg["Eenheid"] for p_agg in aggregated_products)))
+                        
                         if unique_units_combined:
                             desired_quantities_inputs_combined = []
+                            
+                            # Create a container for all unit input groups to apply flexbox properties
+                            st.markdown('<div class="unit-inputs-container">', unsafe_allow_html=True)
+                            
                             for unit_option_comb in unique_units_combined:
-                                st.markdown(f"**Optie voor eenheid: {unit_option_comb}**")
+                                # Each unit's inputs (quantity + slider) inside its own div with 'unit-column-group' class
+                                st.markdown(f'<div class="unit-column-group">', unsafe_allow_html=True)
+                                
+                                st.markdown(f"**{unit_option_comb}**", unsafe_allow_html=True) 
                                 is_stuks = unit_option_comb.lower() == "stuks"
                                 main_qty_key = f"main_qty_COMBINED_{combined_category_name}_{unit_option_comb}_{search_term}"
                                 if is_stuks:
                                     main_step = 1 ; main_format = "%d"; main_qty_default_val = int(st.session_state.get(main_qty_key, 0)); min_val_for_input = 0 
                                 else:
                                     main_step = 0.01 ; main_format = "%.2f"; main_qty_default_val = float(st.session_state.get(main_qty_key, 0.0)); min_val_for_input = 0.0
-                                main_qty = st.number_input("Basishoeveelheid", min_value=min_val_for_input, value=main_qty_default_val, step=main_step, format=main_format, key=main_qty_key, label_visibility="collapsed", help=f"Voer de gewenste basishoeveelheid in {unit_option_comb} in.")
-                                tolerance_percentage_input = 0; abs_tolerance_value_calculated = 0
+                                main_qty = st.number_input("", min_value=min_val_for_input, value=main_qty_default_val, step=main_step, format=main_format, key=main_qty_key, label_visibility="collapsed", help=f"Voer de gewenste basishoeveelheid in {unit_option_comb} in.")
+                                
+                                tolerance_percentage_input = 0
+                                abs_tolerance_value_calculated = 0
                                 if main_qty > 0:
                                     slider_key = f"tol_perc_slider_{combined_category_name}_{unit_option_comb}_{search_term}"
                                     current_slider_value = st.session_state.get(slider_key, 0)
-                                    temp_abs_tolerance_display = 0
-                                    if current_slider_value > 0:
-                                        temp_abs_tolerance_display = round(float(main_qty) * (current_slider_value / 100.0))
-                                        if temp_abs_tolerance_display == 0 and (float(main_qty) * (current_slider_value / 100.0)) >= 0.5:
-                                            if float(main_qty) >= 2 or not is_stuks: temp_abs_tolerance_display = 1
-                                        max_allowed_temp = math.floor(0.5 * float(main_qty))
-                                        if temp_abs_tolerance_display > max_allowed_temp: temp_abs_tolerance_display = max_allowed_temp
-                                        if temp_abs_tolerance_display < 1 and current_slider_value > 0 : temp_abs_tolerance_display = 0
-                                    if current_slider_value > 0 and temp_abs_tolerance_display > 0: st.caption(f"Ingestelde tolerantie: {main_qty} {unit_option_comb} **± {temp_abs_tolerance_display} {unit_option_comb}** ({current_slider_value}%)")
-                                    elif current_slider_value > 0: st.caption(f"Tolerantie van {current_slider_value}% is te klein (resulteert in ±0 {unit_option_comb}).")
-                                    else: st.caption("Geen tolerantie geselecteerd (0%). Sleep slider om in te stellen.")
-                                    tolerance_percentage_input = st.slider(f"Tolerantie (±%) voor {main_qty} {unit_option_comb}", min_value=0, max_value=50, value=current_slider_value, step=1, format="%d%%", key=slider_key, help=f"Max 50% van {main_qty} {unit_option_comb}.")
-                                    if tolerance_percentage_input > 0: 
-                                        abs_tolerance_value_calculated = round(float(main_qty) * (tolerance_percentage_input / 100.0))
-                                        if abs_tolerance_value_calculated == 0 and (float(main_qty) * (tolerance_percentage_input / 100.0)) >= 0.5:
-                                            if float(main_qty) >= 2 or not is_stuks : abs_tolerance_value_calculated = 1
-                                        max_abs_tol_allowed_calc = math.floor(0.5 * float(main_qty))
-                                        if abs_tolerance_value_calculated > max_abs_tol_allowed_calc: abs_tolerance_value_calculated = max_abs_tol_allowed_calc
-                                        if abs_tolerance_value_calculated < 1: abs_tolerance_value_calculated = 0
-                                else: st.caption("Voer eerst een basishoeveelheid (>0) in om tolerantie in te stellen.")
+                                    temp_abs_tolerance_display = round(float(main_qty) * (current_slider_value / 100.0))
+                                    if temp_abs_tolerance_display == 0 and (float(main_qty) * (current_slider_value / 100.0)) >= 0.5:
+                                        if float(main_qty) >= 2 or not is_stuks: temp_abs_tolerance_display = 1
+                                    max_allowed_temp = math.floor(0.5 * float(main_qty))
+                                    if temp_abs_tolerance_display > max_allowed_temp: temp_abs_tolerance_display = max_allowed_temp
+                                    if temp_abs_tolerance_display < 1 and current_slider_value > 0 : temp_abs_tolerance_display = 0
+                                    
+                                    tolerance_percentage_input = st.slider(f"Tolerantie (±%)", min_value=0, max_value=50, value=current_slider_value, step=1, format="%d%%", key=slider_key, label_visibility="collapsed", help=f"Max 50% van {main_qty} {unit_option_comb}.")
+                                    st.markdown(f"<p style='font-size: 0.75em; text-align: center; color: #777;'>± {int(abs_tolerance_value_calculated)} {unit_option_comb}</p>", unsafe_allow_html=True)
+                                else:
+                                    st.markdown("<p style='font-size: 0.75em; text-align: center; color: #777;'>Geen tol. (hoeveelheid 0)</p>", unsafe_allow_html=True)
+
                                 if main_qty > 0: 
                                     stored_main_qty = int(main_qty) if is_stuks and main_qty == int(main_qty) else float(main_qty)
                                     desired_quantities_inputs_combined.append({"Hoeveelheid": stored_main_qty, "Eenheid": unit_option_comb, "TolerantiePercentage": tolerance_percentage_input, "TolerantieWaarde": int(abs_tolerance_value_calculated), "TolerantieEenheid": unit_option_comb if tolerance_percentage_input > 0 and abs_tolerance_value_calculated > 0 else None})
-                                st.markdown("---") 
+                                
+                                st.markdown('</div>', unsafe_allow_html=True) # Close unit-column-group
+                            
+                            st.markdown('</div>', unsafe_allow_html=True) # Close unit-inputs-container
+                            
+                            st.markdown("---") # Separator before the button
+                            
+                            st.text_input("Geef een naam voor deze selectie (druk Enter om te bevestigen):", value=st.session_state[combined_category_name_key], key=combined_category_name_key)
+                            
                             if st.button(f"Voeg '{combined_category_name}' met opgegeven opties toe aan lijstje", key=f"add_btn_COMBINED_{combined_category_name}_{search_term}"):
-                                add_to_shopping_list(combined_category_name, desired_quantities_inputs_combined, aggregated_products)
+                                add_to_shopping_list(st.session_state[combined_category_name_key], desired_quantities_inputs_combined, aggregated_products)
                         else: st.info(f"Geen bruikbare eenheden voor producten in '{combined_category_name}'.")
                     else: st.info(f"Geen producten voor combinatie van sub-categorieën.")
         elif search_term: st.info(f"Geen producten gevonden die '{search_term}' bevatten.")

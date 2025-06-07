@@ -31,5 +31,15 @@
             "Sperziebonen",
             "Vanille vla (gecombineerd)"
         ]
+    },
+    {
+        "date": "2025-06-07 12:24:16",
+        "supermarket_chosen": "Dirk",
+        "cost_chosen_supermarket": "0.99",
+        "average_complete_list_cost": "1.15",
+        "amount_saved": "0.16",
+        "shopping_list_items": [
+            "Kroepoek (gecombineerd)"
+        ]
     }
 ]
