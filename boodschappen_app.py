@@ -44,7 +44,7 @@ def apply_custom_styling():
         }
         div[data-testid="stTextInput"] input {
             background-color: #F0F2F6; border-radius: 25px; border: 1px solid #F0F2F6; 
-            padding-top: 12px; padding-bottom: 12px; padding-left: 20px; padding-right: 20px;      
+            padding-top: 12px; padding-bottom: 12px; padding-left: 20px; padding-right: 20px;    
             line-height: 1.6; box-shadow: none; font-weight: 500;
         }
         div[data-testid="stTextInput"] input:focus {
@@ -544,7 +544,7 @@ def load_shopping_list_from_file(list_name):
             if 'comparison_results' in st.session_state: del st.session_state.comparison_results
             if 'active_swap' in st.session_state: del st.session_state.active_swap
             st.success(f"Lijst '{list_name}' geladen.")
-            st.rerun() # Rerun to update UI with new list
+            # Geen st.rerun() hier, omdat Streamlit automatisch rerunt na knopklik/selectbox interactie
         except Exception as e:
             st.error(f"Fout bij laden van lijst '{list_name}': {e}")
     else:
@@ -828,9 +828,18 @@ def display_main_app_view():
     
     available_lists = list(st.session_state.saved_lists_meta.keys())
     if available_lists:
-        selected_list_to_load = st.sidebar.selectbox("Laad Opgeslagen Mandje:", [""] + sorted(available_lists), key="load_list_selectbox")
-        if selected_list_to_load:
+        # Sla de selectie op in session_state, zodat we deze later kunnen gebruiken.
+        # Een `on_change` callback is hier handig om de waarde van de selectbox direct in session state te zetten.
+        selected_list_to_load = st.sidebar.selectbox(
+            "Laad Opgeslagen Mandje:",
+            [""] + sorted(available_lists),
+            key="load_list_selectbox"
+        )
+        
+        # Voeg hier de "Laad Lijst" knop toe
+        if selected_list_to_load and st.sidebar.button(f"Laad '{selected_list_to_load}'", key="load_selected_list_button"):
             load_shopping_list_from_file(selected_list_to_load)
+            st.rerun() # Noodzakelijk hier om de UI te updaten na het laden van een lijst via de knop.
         
         st.sidebar.markdown("---")
         st.sidebar.header("Verwijder Opgeslagen Lijst")
@@ -873,8 +882,8 @@ def display_main_app_view():
                 paid_percentage = 0.0
                 saved_percentage = 0.0
             elif paid_percentage + saved_percentage > 100.01: 
-                 if saved_percentage > 100: saved_percentage = 100
-                 paid_percentage = 100 - saved_percentage 
+                   if saved_percentage > 100: saved_percentage = 100
+                   paid_percentage = 100 - saved_percentage 
             
             paid_text_content = f"€{total_actual_paid_if_chosen:.0f}" if paid_percentage > 15 else ""
             saved_text_content = f"€{total_saved_amount:.0f}" if saved_percentage > 15 else ""
